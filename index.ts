@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { LinearClient } from '@linear/sdk';
 import * as fs from 'node:fs';
+import * as http from 'node:http';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
@@ -44,6 +45,8 @@ type WorkflowResults = {
   };
 };
 
+type HttpResponseBody = Record<string, unknown>;
+
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -59,6 +62,19 @@ function getOctokit(): Octokit {
 
 function getLinearClient(): LinearClient {
   return new LinearClient({ apiKey: requiredEnv('LINEAR_API_KEY') });
+}
+
+function getErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const status = 'status' in error ? error.status : undefined;
+  if (status === 401) {
+    return 'GitHub rejected GITHUB_TOKEN with 401 Bad credentials. Create a fresh GitHub token, add it to Railway variables as GITHUB_TOKEN, and make sure it has access to the configured repository.';
+  }
+
+  return error.message;
 }
 
 // ---------------------------------------------------------
@@ -220,7 +236,56 @@ async function simulateSlackIntakeCommand() {
   console.log('[ AUTHORIZE MERGE & PROVISION ]    [ BLOCK TRANSITION ]');
 }
 
-simulateSlackIntakeCommand().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+function sendJson(response: http.ServerResponse, statusCode: number, body: HttpResponseBody) {
+  response.writeHead(statusCode, { 'content-type': 'application/json' });
+  response.end(JSON.stringify(body, null, 2));
+}
+
+function startServer() {
+  const port = Number(process.env.PORT ?? 3000);
+
+  const server = http.createServer(async (request, response) => {
+    if (request.method === 'GET' && request.url === '/') {
+      sendJson(response, 200, {
+        service: 'app-usage-monitor-agent',
+        status: 'ok',
+        runPipeline: 'POST /run'
+      });
+      return;
+    }
+
+    if (request.method === 'GET' && request.url === '/health') {
+      sendJson(response, 200, { status: 'ok' });
+      return;
+    }
+
+    if (request.method === 'POST' && request.url === '/run') {
+      try {
+        const executionContext = {
+          targetUser: process.env.TARGET_USER ?? 'Amila@company.com',
+          targetApp: process.env.TARGET_APP ?? 'MuleSoft Anypoint'
+        };
+        const result = await licenseOrchestrator.execute(executionContext);
+        sendJson(response, 200, { status: 'completed', result });
+      } catch (error: unknown) {
+        sendJson(response, 500, { status: 'failed', error: getErrorMessage(error) });
+      }
+      return;
+    }
+
+    sendJson(response, 404, { status: 'not_found' });
+  });
+
+  server.listen(port, () => {
+    console.log(`License agent service listening on port ${port}`);
+  });
+}
+
+if (process.env.RUN_PIPELINE_ON_START === 'true') {
+  simulateSlackIntakeCommand().catch((error: unknown) => {
+    console.error(getErrorMessage(error));
+    startServer();
+  });
+} else {
+  startServer();
+}
