@@ -137,7 +137,8 @@ async function executeGitHubPipeline(targetUser: string, updatedData: LicenseDat
   const octokit = getOctokit();
   const owner = requiredEnv('GITHUB_REPO_OWNER');
   const repo = requiredEnv('GITHUB_REPO_NAME');
-  const branchName = `audit/allocation-${targetUser.replace(/[^a-zA-Z0-9]/g, '-')}`;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const branchName = `audit/allocation-${targetUser.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}`;
 
   const { data: mainRef } = await octokit.git.getRef({ owner, repo, ref: 'heads/develop' });
 
