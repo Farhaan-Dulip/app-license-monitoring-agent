@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Software License Audit Hub</title>
+    <!-- Tailwind CSS CDN for instant utility styling with zero configuration -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+    <!-- Top Navigation Header Bar -->
+    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+            <div class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
+            <h1 class="text-xl font-bold tracking-tight">AccessGuard <span class="text-slate-500 text-sm font-normal">// License Engine</span></h1>
+        </div>
+        <div class="text-xs bg-slate-800 border border-slate-700 rounded px-2.5 py-1 text-slate-400 font-mono">
+            STATUS: EVALUATION_BRANCH_ACTIVE
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- Automated AI Optimization Impact Banner -->
+        <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-6 flex items-start space-x-4">
+            <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 font-bold text-xl">💡</div>
+            <div>
+                <h3 class="text-emerald-400 font-semibold text-base">Active AI Reallocation Insight</h3>
+                <p class="text-slate-400 text-sm mt-1">
+                    The Mastra.ai workflow intercepted the request, successfully located an idle enterprise user profile, and recycled the token. **Net spending trajectory: $0 cost variance generated.**
+                </p>
+            </div>
+        </div>
+
+        <!-- Metric Scoreboard Grid Layout -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-6">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Monitored Apps</span>
+                <div class="text-3xl font-bold mt-2 text-slate-100">14 <span class="text-sm font-normal text-slate-500">Integrations</span></div>
+            </div>
+            <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-6">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Identified Cost Leaks</span>
+                <div class="text-3xl font-bold mt-2 text-rose-400">0.00 <span class="text-sm font-normal text-slate-500">USD / mo</span></div>
+            </div>
+            <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-6">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Recycled Asset Pool</span>
+                <div class="text-3xl font-bold mt-2 text-emerald-400">+ $1,440 <span class="text-sm font-normal text-slate-500">saved annual run-rate</span></div>
+            </div>
+        </section>
+
+        <!-- Dynamic License Tracking Data Table Section -->
+        <section class="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-800 bg-slate-950/20">
+                <h2 class="text-base font-semibold text-slate-200">Current Workspace Asset Allocation Registry</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-900/50 text-xs font-semibold uppercase tracking-wider text-slate-400 font-mono">
+                            <th class="px-6 py-4">Integration Platform</th>
+                            <th class="px-6 py-4">Assigned User Endpoint</th>
+                            <th class="px-6 py-4">Operational State</th>
+                            <th class="px-6 py-4">Telemetry Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="license-rows" class="divide-y divide-slate-850 text-sm text-slate-300 font-mono">
+                        <!-- JavaScript will inject dynamic code data blocks here dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- JavaScript Data Binding Script -->
+    <script>
+        async function loadLicenseDashboard() {
+            try {
+                // Fetch the json file sitting directly next to this index.html file
+                const response = await fetch('./licenses.json');
+                const data = await response.json();
+                const container = document.getElementById('license-rows');
+                
+                container.innerHTML = data.licenses.map(lic => `
+                    <tr class="hover:bg-slate-900/30 transition-colors">
+                        <td class="px-6 py-4 font-semibold text-slate-200">${lic.application}</td>
+                        <td class="px-6 py-4 text-slate-400">${lic.assignedTo}</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                lic.assignedTo.includes('ex-employee') 
+                                ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' 
+                                : 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20'
+                            }">
+                                ${lic.assignedTo.includes('ex-employee') ? '⚠️ PENDING_RECLAIM' : '🟢 ACTIVE_ALLOCATED'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-slate-500 text-xs">${lic.lastActiveDate}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error("Critical System Alert: Failed to parse data mapping configuration layer", error);
+            }
+        }
+        
+        // Initial execution on layout completion
+        loadLicenseDashboard();
+    </script>
+</body>
+</html>
