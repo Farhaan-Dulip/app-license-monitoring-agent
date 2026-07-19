@@ -50,7 +50,7 @@ const analyzeLicenseDatabase = {
     id: 'analyze-license-db',
     description: 'Scans the existing license JSON configurations to locate idle users over 60 days inactive.',
     execute: async () => {
-        const filePath = path.join(__dirname, 'repository-template', 'licenses.json');
+        const filePath = path.join(__dirname, 'licenses.json');
         return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
 };
