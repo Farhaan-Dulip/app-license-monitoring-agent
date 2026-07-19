@@ -27,9 +27,21 @@ function getErrorMessage(error) {
     }
     const status = 'status' in error ? error.status : undefined;
     if (status === 401) {
-        return 'GitHub rejected GITHUB_TOKEN with 401 Bad credentials. Create a fresh GitHub token, add it to Railway variables as GITHUB_TOKEN, and make sure it has access to the configured repository.';
+        return 'GitHub rejected GITHUB_TOKEN with 401 Bad credentials.';
     }
     return error.message;
+}
+// Helper to parse URL-encoded bodies sent by Slack commands
+function parseFormBody(bodyStr) {
+    const params = {};
+    const pairs = bodyStr.split('&');
+    for (const pair of pairs) {
+        const [key, val] = pair.split('=');
+        if (key) {
+            params[decodeURIComponent(key)] = decodeURIComponent(val || '').replace(/\+/g, ' ');
+        }
+    }
+    return params;
 }
 // ---------------------------------------------------------
 // NODE 1: Define the Local Database Engine via MCP Paradigm
@@ -75,7 +87,7 @@ async function executeGitHubPipeline(targetUser, updatedData) {
     const owner = requiredEnv('GITHUB_REPO_OWNER');
     const repo = requiredEnv('GITHUB_REPO_NAME');
     const branchName = `audit/allocation-${targetUser.replace(/[^a-zA-Z0-9]/g, '-')}`;
-    const { data: mainRef } = await octokit.git.getRef({ owner, repo, ref: 'heads/main' });
+    const { data: mainRef } = await octokit.git.getRef({ owner, repo, ref: 'heads/develop' });
     await octokit.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha: mainRef.object.sha });
     const { data: fileData } = await octokit.repos.getContent({ owner, repo, path: 'licenses.json', ref: branchName });
     if (Array.isArray(fileData) || fileData.type !== 'file' || !fileData.sha) {
@@ -139,6 +151,70 @@ export const licenseOrchestrator = {
         };
     }
 };
+// -----------------------------------------------------------------------
+// NODE 5: Outgoing Slack Messenger (Dispatches Block Kit UI Elements)
+// -----------------------------------------------------------------------
+async function dispatchSlackInteractiveCard(user, appName, pr, ticket, preview) {
+    const webhookUrl = requiredEnv('SLACK_WEBHOOK_URL');
+    const slackPayload = {
+        blocks: [
+            {
+                type: "header",
+                text: { type: "plain_text", text: "🔐 AccessGuard Enterprise License Audit" }
+            },
+            {
+                type: "section",
+                text: {
+                    type: "mrkdwn",
+                    text: `*Target Assignment:* \`${user}\`\n*Requested Platform:* *${appName}*\n*Compliance Status:* 🟢 Found Inactive Profile. Reallocating existing token.\n*Financial Footprint:* *Net $0 Variance (Saved $120/mo)* 💸`
+                }
+            },
+            {
+                type: "divider"
+            },
+            {
+                type: "section",
+                text: {
+                    type: "mrkdwn",
+                    text: `📂 *Source Control Log:* <${pr}|Review GitHub Pull Request>\n🎫 *Governance tracking:* <${ticket}|View Linear Issue Ticket>\n🚀 *Staging Preview Portal:* <${preview}|Open Ephemeral Staging Hub>`
+                }
+            },
+            {
+                type: "actions",
+                elements: [
+                    {
+                        type: "button",
+                        style: "primary",
+                        text: { type: "plain_text", text: "🟢 Approve Allocation" },
+                        value: "approve_allocation"
+                    },
+                    {
+                        type: "button",
+                        style: "danger",
+                        text: { type: "plain_text", text: "🔴 Block Provision" },
+                        value: "block_provision"
+                    }
+                ]
+            }
+        ]
+    };
+    return new Promise((resolve, reject) => {
+        const url = new URL(webhookUrl);
+        const options = {
+            hostname: url.hostname,
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        };
+        const req = http.request(options, (res) => {
+            res.on('data', () => { });
+            res.on('end', () => resolve());
+        });
+        req.on('error', (err) => reject(err));
+        req.write(JSON.stringify(slackPayload));
+        req.end();
+    });
+}
 // ---------------------------------------------------------
 // RUNTIME INTAKE INTERFACE SIMULATOR
 // ---------------------------------------------------------
@@ -149,21 +225,19 @@ async function simulateSlackIntakeCommand() {
         targetApp: 'MuleSoft Anypoint'
     };
     const runtimeResults = await licenseOrchestrator.execute(executionContext);
-    // ---------------------------------------------------------
-    // NODE 5: Centralized Slack Notification Block Component
-    // ---------------------------------------------------------
     console.log('\n=======================================================');
     console.log('CHATOPS INTERACTIVE CONTROL CARD GENERATED SUCCESSFULLY');
     console.log('=======================================================');
-    console.log(`Target User Assignment:  ${executionContext.targetUser}`);
-    console.log(`Application Component:   ${executionContext.targetApp}`);
-    console.log(`Git Audit Pull Request:  ${runtimeResults.steps.triggerGitOps.prUrl}`);
-    console.log(`Linear Compliance Log:   ${runtimeResults.steps.logGovernanceTicket.ticketUrl}`);
     const repo = requiredEnv('GITHUB_REPO_NAME');
     const branch = runtimeResults.steps.triggerGitOps.branchName.replace(/\//g, '-');
-    console.log(`Ephemeral Railway Portal: https://${repo}-${branch}.up.railway.app`);
-    console.log('=======================================================\n');
-    console.log('[ AUTHORIZE MERGE & PROVISION ]    [ BLOCK TRANSITION ]');
+    const previewUrl = `https://${repo}-${branch}.up.railway.app`;
+    try {
+        await dispatchSlackInteractiveCard(executionContext.targetUser, executionContext.targetApp, runtimeResults.steps.triggerGitOps.prUrl, runtimeResults.steps.logGovernanceTicket.ticketUrl || '', previewUrl);
+        console.log('Status: Interactive layout dashboard card successfully pushed to Slack!');
+    }
+    catch (err) {
+        console.warn('Status: Pipeline passed but target Slack Webhook rejected dispatch payload.', getErrorMessage(err));
+    }
 }
 function sendJson(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json' });
@@ -172,12 +246,12 @@ function sendJson(response, statusCode, body) {
 function startServer() {
     const port = Number(process.env.PORT ?? 3000);
     const shouldUseExactPort = Boolean(process.env.PORT);
-    const server = http.createServer(async (request, response) => {
+    const server = http.createServer((request, response) => {
         if (request.method === 'GET' && request.url === '/') {
             sendJson(response, 200, {
                 service: 'app-usage-monitor-agent',
                 status: 'ok',
-                runPipeline: 'POST /run'
+                slackCommandEndpoint: 'POST /api/slack/command'
             });
             return;
         }
@@ -185,27 +259,45 @@ function startServer() {
             sendJson(response, 200, { status: 'ok' });
             return;
         }
-        if (request.method === 'POST' && request.url === '/run') {
-            try {
-                const executionContext = {
-                    targetUser: process.env.TARGET_USER ?? 'Amila@company.com',
-                    targetApp: process.env.TARGET_APP ?? 'MuleSoft Anypoint'
-                };
-                const result = await licenseOrchestrator.execute(executionContext);
-                sendJson(response, 200, { status: 'completed', result });
-            }
-            catch (error) {
-                sendJson(response, 500, { status: 'failed', error: getErrorMessage(error) });
-            }
+        if (request.method === 'POST' && request.url === '/api/slack/command') {
+            let bodyData = '';
+            request.on('data', (chunk) => {
+                bodyData += chunk.toString();
+            });
+            request.on('end', async () => {
+                try {
+                    const parsedForm = parseFormBody(bodyData);
+                    const slackInputText = parsedForm.text || '';
+                    const spaceIndex = slackInputText.indexOf(' ');
+                    let targetUser = 'Amila@company.com';
+                    let targetApp = 'MuleSoft Anypoint';
+                    if (spaceIndex !== -1) {
+                        targetUser = slackInputText.substring(0, spaceIndex).trim();
+                        targetApp = slackInputText.substring(spaceIndex + 1).trim();
+                    }
+                    response.writeHead(200, { 'content-type': 'text/plain' });
+                    response.end(`⏳ Processing license request optimization vectors for ${targetApp}...`);
+                    const results = await licenseOrchestrator.execute({ targetUser, targetApp });
+                    const repo = requiredEnv('GITHUB_REPO_NAME');
+                    const branch = results.steps.triggerGitOps.branchName.replace(/\//g, '-');
+                    const previewUrl = `https://${repo}-${branch}.up.railway.app`;
+                    await dispatchSlackInteractiveCard(targetUser, targetApp, results.steps.triggerGitOps.prUrl, results.steps.logGovernanceTicket.ticketUrl || '', previewUrl);
+                }
+                catch (error) {
+                    console.error("Async Workflow Execution Interrupted:", getErrorMessage(error));
+                }
+            });
             return;
         }
         sendJson(response, 404, { status: 'not_found' });
     });
     const listen = (targetPort) => {
+        // Clear out stale listeners before binding a fresh port attempt
+        server.removeAllListeners('error');
         server.once('error', (error) => {
             if (error.code === 'EADDRINUSE' && !shouldUseExactPort) {
                 console.warn(`Port ${targetPort} is already in use. Trying ${targetPort + 1}...`);
-                listen(targetPort + 1);
+                setTimeout(() => listen(targetPort + 1), 10);
                 return;
             }
             console.error(error.message);
@@ -217,12 +309,19 @@ function startServer() {
     };
     listen(port);
 }
-if (process.env.RUN_PIPELINE_ON_START === 'true') {
-    simulateSlackIntakeCommand().catch((error) => {
-        console.error(getErrorMessage(error));
-        startServer();
-    });
-}
-else {
+// ---------------------------------------------------------
+// REFACTORED PROCESS INITIALIZATION BOOTSTRAPPER
+// ---------------------------------------------------------
+async function bootstrap() {
+    if (process.env.RUN_PIPELINE_ON_START === 'true') {
+        try {
+            await simulateSlackIntakeCommand();
+        }
+        catch (error) {
+            console.error("Simulation run encountered an operational fault:", getErrorMessage(error));
+        }
+    }
+    // Safely activate the HTTP web server exactly once
     startServer();
 }
+bootstrap();
