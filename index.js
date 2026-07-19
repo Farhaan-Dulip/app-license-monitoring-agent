@@ -171,6 +171,7 @@ function sendJson(response, statusCode, body) {
 }
 function startServer() {
     const port = Number(process.env.PORT ?? 3000);
+    const shouldUseExactPort = Boolean(process.env.PORT);
     const server = http.createServer(async (request, response) => {
         if (request.method === 'GET' && request.url === '/') {
             sendJson(response, 200, {
@@ -200,9 +201,21 @@ function startServer() {
         }
         sendJson(response, 404, { status: 'not_found' });
     });
-    server.listen(port, () => {
-        console.log(`License agent service listening on port ${port}`);
-    });
+    const listen = (targetPort) => {
+        server.once('error', (error) => {
+            if (error.code === 'EADDRINUSE' && !shouldUseExactPort) {
+                console.warn(`Port ${targetPort} is already in use. Trying ${targetPort + 1}...`);
+                listen(targetPort + 1);
+                return;
+            }
+            console.error(error.message);
+            process.exitCode = 1;
+        });
+        server.listen(targetPort, () => {
+            console.log(`License agent service listening on port ${targetPort}`);
+        });
+    };
+    listen(port);
 }
 if (process.env.RUN_PIPELINE_ON_START === 'true') {
     simulateSlackIntakeCommand().catch((error) => {

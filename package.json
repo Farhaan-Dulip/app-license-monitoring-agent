@@ -16,8 +16,10 @@
     "@linear/sdk": "^88.2.0",
     "@mastra/core": "^1.51.0",
     "@octokit/rest": "^22.0.1",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.1.1",
     "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "typescript": "^7.0.2"
   },
   "devDependencies": {
