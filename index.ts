@@ -526,6 +526,21 @@ async function createLinearGovernanceTicket(
   const configuredTeamId = optionalEnv('LINEAR_TEAM_ID');
   let teamId = configuredTeamId;
 
+  if (teamId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(teamId)) {
+    const teams = await linear.teams();
+    const matchingTeam = teams.nodes.find(
+      (team) =>
+        team.key.toLowerCase() === teamId?.toLowerCase() ||
+        team.name.toLowerCase() === teamId?.toLowerCase()
+    );
+
+    if (!matchingTeam) {
+      throw new Error(`LINEAR_TEAM_ID must be a UUID, team key, or team name. Could not resolve "${teamId}".`);
+    }
+
+    teamId = matchingTeam.id;
+  }
+
   if (!teamId) {
     const teams = await linear.teams();
     teamId = teams.nodes[0]?.id;
