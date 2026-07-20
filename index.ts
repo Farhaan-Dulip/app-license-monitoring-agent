@@ -53,6 +53,9 @@ type MutationResults = AuditResults & {
 
 type GovernanceResults = MutationResults & {
   prUrl: string | null;
+  prNumber: number | null;
+  prOwner: string | null;
+  prRepo: string | null;
   branchName: string | null;
   ticketId: string | null;
   ticketUrl: string | null;
@@ -71,6 +74,9 @@ type WorkflowResults = {
   databasePath: string;
   recordsUpdated: number;
   prUrl: string | null;
+  prNumber: number | null;
+  prOwner: string | null;
+  prRepo: string | null;
   ticketId: string | null;
   ticketUrl: string | null;
   approvalUiUrl: string;
@@ -123,6 +129,9 @@ const mutationResultsSchema = auditResultsSchema.extend({
 
 const governanceResultsSchema = mutationResultsSchema.extend({
   prUrl: z.string().nullable(),
+  prNumber: z.number().nullable(),
+  prOwner: z.string().nullable(),
+  prRepo: z.string().nullable(),
   branchName: z.string().nullable(),
   ticketId: z.string().nullable(),
   ticketUrl: z.string().nullable(),
@@ -141,6 +150,9 @@ const workflowResultsSchema = z.object({
   databasePath: z.string(),
   recordsUpdated: z.number(),
   prUrl: z.string().nullable(),
+  prNumber: z.number().nullable(),
+  prOwner: z.string().nullable(),
+  prRepo: z.string().nullable(),
   ticketId: z.string().nullable(),
   ticketUrl: z.string().nullable(),
   approvalUiUrl: z.string(),
@@ -190,7 +202,11 @@ function getPublicBaseUrl(): string {
   return `http://localhost:${process.env.PORT ?? 3000}`;
 }
 
-function buildApprovalUiUrl(results: MutationResults, ticketId: string | null): string {
+function buildApprovalUiUrl(
+  results: MutationResults,
+  ticketId: string | null,
+  githubPr: { prNumber: number; prOwner: string; prRepo: string } | null
+): string {
   const params = new URLSearchParams({
     user: results.targetUser,
     app: results.targetApp,
@@ -199,6 +215,12 @@ function buildApprovalUiUrl(results: MutationResults, ticketId: string | null): 
 
   if (ticketId) {
     params.set('ticketId', ticketId);
+  }
+
+  if (githubPr) {
+    params.set('prNumber', String(githubPr.prNumber));
+    params.set('prOwner', githubPr.prOwner);
+    params.set('prRepo', githubPr.prRepo);
   }
 
   return `${getPublicBaseUrl()}/approval/${encodeURIComponent(results.licenseId)}?${params.toString()}`;
@@ -448,7 +470,9 @@ async function dispatchSlackInteractiveCard(results: GovernanceResults): Promise
 // ---------------------------------------------------------
 // NODE 4: GitHub + Linear Governance Evidence
 // ---------------------------------------------------------
-async function createGitHubEvidencePr(results: MutationResults): Promise<{ prUrl: string; branchName: string } | null> {
+async function createGitHubEvidencePr(
+  results: MutationResults
+): Promise<{ prUrl: string; prNumber: number; prOwner: string; prRepo: string; branchName: string } | null> {
   const octokit = getOctokit();
   const owner = optionalEnv('GITHUB_REPO_OWNER');
   const repo = optionalEnv('GITHUB_REPO_NAME');
@@ -518,6 +542,9 @@ async function createGitHubEvidencePr(results: MutationResults): Promise<{ prUrl
 
   return {
     prUrl: pullRequest.html_url,
+    prNumber: pullRequest.number,
+    prOwner: owner,
+    prRepo: repo,
     branchName
   };
 }
@@ -581,6 +608,9 @@ async function createLinearGovernanceTicket(
 async function createGovernanceEvidence(results: MutationResults): Promise<GovernanceResults> {
   const notes: string[] = [];
   let prUrl: string | null = null;
+  let prNumber: number | null = null;
+  let prOwner: string | null = null;
+  let prRepo: string | null = null;
   let branchName: string | null = null;
   let ticketId: string | null = null;
   let ticketUrl: string | null = null;
@@ -600,6 +630,9 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
     const pr = await createGitHubEvidencePr(results);
     if (pr) {
       prUrl = pr.prUrl;
+      prNumber = pr.prNumber;
+      prOwner = pr.prOwner;
+      prRepo = pr.prRepo;
       branchName = pr.branchName;
       notes.push('GitHub evidence PR created.');
     } else if (!hasGitHubEnv) {
@@ -632,11 +665,15 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
 
   const createdCount = [prUrl, ticketUrl].filter(Boolean).length;
   const governanceStatus = createdCount === 2 ? 'created' : createdCount === 0 ? 'skipped' : 'partial';
-  const approvalUiUrl = buildApprovalUiUrl(results, ticketId);
+  const githubPr = prNumber && prOwner && prRepo ? { prNumber, prOwner, prRepo } : null;
+  const approvalUiUrl = buildApprovalUiUrl(results, ticketId, githubPr);
 
   return {
     ...results,
     prUrl,
+    prNumber,
+    prOwner,
+    prRepo,
     branchName,
     ticketId,
     ticketUrl,
@@ -696,6 +733,9 @@ const slackDispatchStep = createStep({
       databasePath: inputData.databasePath,
       recordsUpdated: inputData.recordsUpdated,
       prUrl: inputData.prUrl,
+      prNumber: inputData.prNumber,
+      prOwner: inputData.prOwner,
+      prRepo: inputData.prRepo,
       ticketId: inputData.ticketId,
       ticketUrl: inputData.ticketUrl,
       approvalUiUrl: inputData.approvalUiUrl,
@@ -812,6 +852,9 @@ function renderApprovalUi(licenseId: string, request: Request): string {
   const targetApp = typeof request.query.app === 'string' ? request.query.app : license?.application ?? 'unknown';
   const auditStatus = typeof request.query.status === 'string' ? request.query.status : 'pending';
   const ticketId = typeof request.query.ticketId === 'string' ? request.query.ticketId : '';
+  const prNumber = typeof request.query.prNumber === 'string' ? request.query.prNumber : '';
+  const prOwner = typeof request.query.prOwner === 'string' ? request.query.prOwner : '';
+  const prRepo = typeof request.query.prRepo === 'string' ? request.query.prRepo : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -852,6 +895,7 @@ function renderApprovalUi(licenseId: string, request: Request): string {
         <dt>Current Assignee</dt><dd>${escapeHtml(license?.assignedTo ?? 'unknown')}</dd>
         <dt>Audit Status</dt><dd><span class="status">${escapeHtml(auditStatus)}</span></dd>
         <dt>Linear Ticket ID</dt><dd>${escapeHtml(ticketId || 'not linked')}</dd>
+        <dt>GitHub PR</dt><dd>${escapeHtml(prNumber && prOwner && prRepo ? `${prOwner}/${prRepo}#${prNumber}` : 'not linked')}</dd>
         <dt>Last Activity</dt><dd>${escapeHtml(license?.lastActiveDate ?? 'unknown')}</dd>
       </dl>
       <div class="actions">
@@ -870,7 +914,13 @@ function renderApprovalUi(licenseId: string, request: Request): string {
         const response = await fetch('/api/approval/${encodeURIComponent(licenseId)}', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ decision, ticketId: ${JSON.stringify(ticketId)} })
+          body: JSON.stringify({
+            decision,
+            ticketId: ${JSON.stringify(ticketId)},
+            prNumber: ${JSON.stringify(prNumber)},
+            prOwner: ${JSON.stringify(prOwner)},
+            prRepo: ${JSON.stringify(prRepo)}
+          })
         });
         const payload = await response.json();
         result.textContent = payload.message || 'Decision recorded.';
@@ -923,6 +973,56 @@ async function updateLinearTicketFromApproval(
   return `Linear ticket moved to ${targetState.name}.`;
 }
 
+async function updateGitHubPrFromApproval(
+  prOwner: string | undefined,
+  prRepo: string | undefined,
+  prNumberValue: string | number | undefined,
+  decision: 'approved' | 'blocked',
+  licenseId: string
+): Promise<string> {
+  if (!prOwner || !prRepo || !prNumberValue) {
+    return 'GitHub PR was not linked to this approval URL.';
+  }
+
+  const octokit = getOctokit();
+  if (!octokit) {
+    return 'GITHUB_TOKEN is not configured; GitHub PR was not updated.';
+  }
+
+  const pull_number = Number(prNumberValue);
+  if (!Number.isInteger(pull_number) || pull_number <= 0) {
+    throw new Error(`Invalid GitHub PR number: ${prNumberValue}`);
+  }
+
+  if (decision === 'approved') {
+    await octokit.pulls.merge({
+      owner: prOwner,
+      repo: prRepo,
+      pull_number,
+      merge_method: 'squash',
+      commit_title: `[Governance Approved] Merge license allocation ${licenseId}`
+    });
+
+    return `GitHub PR #${pull_number} merged.`;
+  }
+
+  await octokit.pulls.update({
+    owner: prOwner,
+    repo: prRepo,
+    pull_number,
+    state: 'closed'
+  });
+
+  await octokit.issues.createComment({
+    owner: prOwner,
+    repo: prRepo,
+    issue_number: pull_number,
+    body: `Railway approval portal decision: **blocked** for license \`${licenseId}\`. Closing this PR without merge.`
+  });
+
+  return `GitHub PR #${pull_number} closed without merge.`;
+}
+
 function startServer() {
   const app = express();
   const port = Number(process.env.PORT ?? 3000);
@@ -968,24 +1068,51 @@ function startServer() {
     console.log('Railway approval UI decision recorded:', {
       licenseId: request.params.licenseId,
       decision,
-      ticketId: request.body?.ticketId
+      ticketId: request.body?.ticketId,
+      prOwner: request.body?.prOwner,
+      prRepo: request.body?.prRepo,
+      prNumber: request.body?.prNumber
     });
 
+    const messages: string[] = [];
+    const errors: string[] = [];
+
     try {
-      const linearMessage = await updateLinearTicketFromApproval(request.body?.ticketId, decision, request.params.licenseId);
+      messages.push(
+        await updateGitHubPrFromApproval(
+          request.body?.prOwner,
+          request.body?.prRepo,
+          request.body?.prNumber,
+          decision,
+          request.params.licenseId
+        )
+      );
+    } catch (error: unknown) {
+      console.error('GitHub approval update failure:', error);
+      errors.push(`GitHub update failed: ${getErrorMessage(error)}`);
+    }
+
+    try {
+      messages.push(await updateLinearTicketFromApproval(request.body?.ticketId, decision, request.params.licenseId));
+    } catch (error: unknown) {
+      console.error('Linear approval update failure:', error);
+      errors.push(`Linear update failed: ${getErrorMessage(error)}`);
+    }
+
+    if (errors.length === 0) {
       sendJson(response, 200, {
         status: 'ok',
         decision,
-        message: `Allocation ${decision} for license ${request.params.licenseId}. ${linearMessage}`
+        message: `Allocation ${decision} for license ${request.params.licenseId}. ${messages.join(' ')}`
       });
-    } catch (error: unknown) {
-      console.error('Linear approval update failure:', error);
-      sendJson(response, 500, {
-        status: 'error',
-        decision,
-        message: `Decision recorded, but Linear update failed: ${getErrorMessage(error)}`
-      });
+      return;
     }
+
+    sendJson(response, 500, {
+      status: 'error',
+      decision,
+      message: `Decision recorded, but follow-up update failed. ${[...messages, ...errors].join(' ')}`
+    });
   });
 
   app.post('/api/slack/command', async (request: RequestWithRawBody, response: Response) => {
