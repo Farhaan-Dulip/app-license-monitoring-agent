@@ -385,7 +385,8 @@ async function dispatchSlackInteractiveCard(results: GovernanceResults): Promise
     `*Railway Approval UI:* <${results.approvalUiUrl}|Open approval portal>`,
     results.prUrl ? `*GitHub Evidence PR:* <${results.prUrl}|Review PR>` : '*GitHub Evidence PR:* Not created',
     results.ticketUrl ? `*Linear Governance Ticket:* <${results.ticketUrl}|View ticket>` : '*Linear Governance Ticket:* Not created',
-    `*Governance Status:* ${results.governanceStatus}`
+    `*Governance Status:* ${results.governanceStatus}`,
+    `*Governance Notes:* ${results.governanceNotes.join(' | ')}`
   ];
 
   const slackPayload = {
@@ -560,6 +561,17 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
   let branchName: string | null = null;
   let ticketUrl: string | null = null;
   const approvalUiUrl = buildApprovalUiUrl(results);
+  const hasGitHubEnv = Boolean(optionalEnv('GITHUB_TOKEN') && optionalEnv('GITHUB_REPO_OWNER') && optionalEnv('GITHUB_REPO_NAME'));
+  const hasLinearEnv = Boolean(optionalEnv('LINEAR_API_KEY'));
+
+  console.log('Governance env check:', {
+    hasGitHubToken: Boolean(optionalEnv('GITHUB_TOKEN')),
+    hasGitHubOwner: Boolean(optionalEnv('GITHUB_REPO_OWNER')),
+    hasGitHubRepo: Boolean(optionalEnv('GITHUB_REPO_NAME')),
+    hasLinearApiKey: Boolean(optionalEnv('LINEAR_API_KEY')),
+    hasLinearTeamId: Boolean(optionalEnv('LINEAR_TEAM_ID')),
+    auditStatus: results.auditStatus
+  });
 
   try {
     const pr = await createGitHubEvidencePr(results);
@@ -567,8 +579,12 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
       prUrl = pr.prUrl;
       branchName = pr.branchName;
       notes.push('GitHub evidence PR created.');
+    } else if (!hasGitHubEnv) {
+      notes.push('GitHub skipped: missing GITHUB_TOKEN, GITHUB_REPO_OWNER, or GITHUB_REPO_NAME in this runtime.');
+    } else if (results.auditStatus === 'already_assigned') {
+      notes.push('GitHub skipped: request was already_assigned, so no file change existed for a PR.');
     } else {
-      notes.push('GitHub evidence PR skipped because GitHub env vars were missing or no data change was needed.');
+      notes.push('GitHub skipped: no PR was returned.');
     }
   } catch (error: unknown) {
     notes.push(`GitHub evidence PR failed: ${getErrorMessage(error)}`);
@@ -580,8 +596,10 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
     if (ticket) {
       ticketUrl = ticket.ticketUrl;
       notes.push('Linear governance ticket created.');
+    } else if (!hasLinearEnv) {
+      notes.push('Linear skipped: missing LINEAR_API_KEY in this runtime.');
     } else {
-      notes.push('Linear governance ticket skipped because LINEAR_API_KEY was missing.');
+      notes.push('Linear skipped: no ticket URL was returned.');
     }
   } catch (error: unknown) {
     notes.push(`Linear governance ticket failed: ${getErrorMessage(error)}`);
