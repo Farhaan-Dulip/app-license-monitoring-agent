@@ -46,6 +46,7 @@ const mutationResultsSchema = auditResultsSchema.extend({
 const governanceResultsSchema = mutationResultsSchema.extend({
     prUrl: z.string().nullable(),
     branchName: z.string().nullable(),
+    ticketId: z.string().nullable(),
     ticketUrl: z.string().nullable(),
     approvalUiUrl: z.string(),
     governanceStatus: z.enum(['created', 'skipped', 'partial']),
@@ -61,6 +62,7 @@ const workflowResultsSchema = z.object({
     databasePath: z.string(),
     recordsUpdated: z.number(),
     prUrl: z.string().nullable(),
+    ticketId: z.string().nullable(),
     ticketUrl: z.string().nullable(),
     approvalUiUrl: z.string(),
     governanceStatus: z.enum(['created', 'skipped', 'partial']),
@@ -100,12 +102,15 @@ function getPublicBaseUrl() {
     }
     return `http://localhost:${process.env.PORT ?? 3000}`;
 }
-function buildApprovalUiUrl(results) {
+function buildApprovalUiUrl(results, ticketId) {
     const params = new URLSearchParams({
         user: results.targetUser,
         app: results.targetApp,
         status: results.auditStatus
     });
+    if (ticketId) {
+        params.set('ticketId', ticketId);
+    }
     return `${getPublicBaseUrl()}/approval/${encodeURIComponent(results.licenseId)}?${params.toString()}`;
 }
 function daysSince(dateValue, now = new Date()) {
@@ -418,14 +423,14 @@ async function createLinearGovernanceTicket(results, prUrl) {
         priority: 1
     });
     const issueDetails = await issue.issue;
-    return issueDetails?.url ? { ticketUrl: issueDetails.url } : null;
+    return issueDetails?.url ? { ticketId: issueDetails.id, ticketUrl: issueDetails.url } : null;
 }
 async function createGovernanceEvidence(results) {
     const notes = [];
     let prUrl = null;
     let branchName = null;
+    let ticketId = null;
     let ticketUrl = null;
-    const approvalUiUrl = buildApprovalUiUrl(results);
     const hasGitHubEnv = Boolean(optionalEnv('GITHUB_TOKEN') && optionalEnv('GITHUB_REPO_OWNER') && optionalEnv('GITHUB_REPO_NAME'));
     const hasLinearEnv = Boolean(optionalEnv('LINEAR_API_KEY'));
     console.log('Governance env check:', {
@@ -460,6 +465,7 @@ async function createGovernanceEvidence(results) {
     try {
         const ticket = await createLinearGovernanceTicket(results, prUrl);
         if (ticket) {
+            ticketId = ticket.ticketId;
             ticketUrl = ticket.ticketUrl;
             notes.push('Linear governance ticket created.');
         }
@@ -476,10 +482,12 @@ async function createGovernanceEvidence(results) {
     }
     const createdCount = [prUrl, ticketUrl].filter(Boolean).length;
     const governanceStatus = createdCount === 2 ? 'created' : createdCount === 0 ? 'skipped' : 'partial';
+    const approvalUiUrl = buildApprovalUiUrl(results, ticketId);
     return {
         ...results,
         prUrl,
         branchName,
+        ticketId,
         ticketUrl,
         approvalUiUrl,
         governanceStatus,
@@ -533,6 +541,7 @@ const slackDispatchStep = createStep({
             databasePath: inputData.databasePath,
             recordsUpdated: inputData.recordsUpdated,
             prUrl: inputData.prUrl,
+            ticketId: inputData.ticketId,
             ticketUrl: inputData.ticketUrl,
             approvalUiUrl: inputData.approvalUiUrl,
             governanceStatus: inputData.governanceStatus,
@@ -632,6 +641,7 @@ function renderApprovalUi(licenseId, request) {
     const targetUser = typeof request.query.user === 'string' ? request.query.user : license?.assignedTo ?? 'unknown';
     const targetApp = typeof request.query.app === 'string' ? request.query.app : license?.application ?? 'unknown';
     const auditStatus = typeof request.query.status === 'string' ? request.query.status : 'pending';
+    const ticketId = typeof request.query.ticketId === 'string' ? request.query.ticketId : '';
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -670,6 +680,7 @@ function renderApprovalUi(licenseId, request) {
         <dt>License ID</dt><dd>${escapeHtml(licenseId)}</dd>
         <dt>Current Assignee</dt><dd>${escapeHtml(license?.assignedTo ?? 'unknown')}</dd>
         <dt>Audit Status</dt><dd><span class="status">${escapeHtml(auditStatus)}</span></dd>
+        <dt>Linear Ticket ID</dt><dd>${escapeHtml(ticketId || 'not linked')}</dd>
         <dt>Last Activity</dt><dd>${escapeHtml(license?.lastActiveDate ?? 'unknown')}</dd>
       </dl>
       <div class="actions">
@@ -688,7 +699,7 @@ function renderApprovalUi(licenseId, request) {
         const response = await fetch('/api/approval/${encodeURIComponent(licenseId)}', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ decision })
+          body: JSON.stringify({ decision, ticketId: ${JSON.stringify(ticketId)} })
         });
         const payload = await response.json();
         result.textContent = payload.message || 'Decision recorded.';
@@ -697,6 +708,37 @@ function renderApprovalUi(licenseId, request) {
   </script>
 </body>
 </html>`;
+}
+async function updateLinearTicketFromApproval(ticketId, decision, licenseId) {
+    if (!ticketId) {
+        return 'Linear ticket was not linked to this approval URL.';
+    }
+    const linear = getLinearClient();
+    if (!linear) {
+        return 'LINEAR_API_KEY is not configured; Linear ticket was not updated.';
+    }
+    const issue = await linear.issue(ticketId);
+    const teamId = issue.teamId;
+    if (!teamId) {
+        throw new Error(`Linear issue ${ticketId} has no teamId.`);
+    }
+    const team = await linear.team(teamId);
+    const states = await team.states();
+    const desiredType = decision === 'approved' ? 'completed' : 'canceled';
+    const fallbackNames = decision === 'approved'
+        ? ['done', 'completed', 'complete']
+        : ['canceled', 'cancelled', 'blocked'];
+    const targetState = states.nodes.find((state) => state.type === desiredType)
+        ?? states.nodes.find((state) => fallbackNames.includes(state.name.toLowerCase()));
+    if (!targetState) {
+        throw new Error(`Could not find a Linear ${desiredType} workflow state for team ${team.name}.`);
+    }
+    await linear.updateIssue(ticketId, { stateId: targetState.id });
+    await linear.createComment({
+        issueId: ticketId,
+        body: `Railway approval portal decision: **${decision}** for license \`${licenseId}\`.`
+    });
+    return `Linear ticket moved to ${targetState.name}.`;
 }
 function startServer() {
     const app = express();
@@ -729,17 +771,29 @@ function startServer() {
     app.get('/approval/:licenseId', (request, response) => {
         response.status(200).type('html').send(renderApprovalUi(request.params.licenseId, request));
     });
-    app.post('/api/approval/:licenseId', (request, response) => {
+    app.post('/api/approval/:licenseId', async (request, response) => {
         const decision = request.body?.decision === 'blocked' ? 'blocked' : 'approved';
         console.log('Railway approval UI decision recorded:', {
             licenseId: request.params.licenseId,
-            decision
-        });
-        sendJson(response, 200, {
-            status: 'ok',
             decision,
-            message: `Allocation ${decision} for license ${request.params.licenseId}.`
+            ticketId: request.body?.ticketId
         });
+        try {
+            const linearMessage = await updateLinearTicketFromApproval(request.body?.ticketId, decision, request.params.licenseId);
+            sendJson(response, 200, {
+                status: 'ok',
+                decision,
+                message: `Allocation ${decision} for license ${request.params.licenseId}. ${linearMessage}`
+            });
+        }
+        catch (error) {
+            console.error('Linear approval update failure:', error);
+            sendJson(response, 500, {
+                status: 'error',
+                decision,
+                message: `Decision recorded, but Linear update failed: ${getErrorMessage(error)}`
+            });
+        }
     });
     app.post('/api/slack/command', async (request, response) => {
         const bodyData = request.rawBody ?? JSON.stringify(request.body ?? {});
