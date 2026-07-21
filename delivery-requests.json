@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T13:13:21.229Z",
+  "lastUpdated": "2026-07-21T14:58:01.905Z",
   "requests": [
     {
       "id": "req_001",
@@ -254,6 +254,127 @@
         "generated-app/src/App.jsx",
         "generated-app/src/App.css",
         "docs/design-to-react-req_009.md"
+      ]
+    },
+    {
+      "id": "req_010",
+      "request": "build a feedback form inlcuding input field for email and ratings and text area for comments",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/deli-delight-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/deli-delight-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing-page",
+        "brandName": "Deli Delight",
+        "audience": "Food enthusiasts and local diners",
+        "mood": "Inviting and friendly",
+        "colorPalette": [
+          "#FFB74D",
+          "#8D6E63",
+          "#6D4C41",
+          "#FFAB40",
+          "#FFF59D"
+        ],
+        "typography": "Montserrat, sans-serif",
+        "sections": [
+          "Welcome to Deli Delight - Your favorite sandwich spot",
+          "Check out our menu with the freshest ingredients",
+          "We value your feedback to improve our services",
+          "Special offers and promotions for our customers"
+        ],
+        "primaryCta": "Leave Feedback",
+        "acceptanceCriteria": [
+          "Feedback form must be functional with validation for email and ratings. User comments should be submitted successfully."
+        ],
+        "implementationPlan": [
+          "1. Design the feedback form in Figma. 2. Convert the design elements to React components. 3. Implement email validation and rating system. 4. Connect the form submission to backend services."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "This implementation provides a refined feedback form experience on a landing page for 'Deli Delight', including sections that encourage customer interaction, structured feedback input, and modern styling.",
+      "acceptanceCriteria": [
+        "Feedback form must be functional with validation for email and ratings. User comments should be submitted successfully."
+      ],
+      "implementationPlan": [
+        "1. Design the feedback form in Figma. 2. Convert the design elements to React components. 3. Implement email validation and rating system. 4. Connect the form submission to backend services."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Deli Delight Feedback</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            font-family: 'Montserrat', sans-serif;\n            background-color: #FFF59D;\n            color: #6D4C41;\n        }\n        .container {\n            max-width: 800px;\n            margin: 0 auto;\n            padding: 20px;\n        }\n        h1, h2 {\n            margin-bottom: 20px;\n        }\n        .section {\n            margin-bottom: 40px;\n        }\n        .feedback-form {\n            background-color: white;\n            padding: 20px;\n            border-radius: 8px;\n            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);\n        }\n        .form-group {\n            margin-bottom: 15px;\n        }\n        label {\n            display: block;\n            margin-bottom: 5px;\n            font-weight: bold;\n        }\n        input[type=\"email\"], textarea {\n            width: 100%;\n            padding: 10px;\n            border: 1px solid #8D6E63;\n            border-radius: 4px;\n            transition: border-color 0.3s;\n        }\n        input[type=\"email\"]:focus, textarea:focus {\n            border-color: #FFB74D;\n            outline: none;\n        }\n        .rating {\n            display: flex;\n            gap: 10px;\n        }\n        .rating input {\n            display: none;\n        }\n        .rating label {\n            cursor: pointer;\n            font-size: 24px;\n        }\n        .rating label:hover, .rating input:checked + label {\n            color: #FFAB40;\n        }\n        button {\n            background-color: #FFB74D;\n            color: white;\n            border: none;\n            padding: 10px 15px;\n            border-radius: 5px;\n            cursor: pointer;\n            transition: background-color 0.3s;\n        }\n        button:hover {\n            background-color: #FFAB40;\n        }\n        @media (max-width: 600px) {\n            .container {\n                padding: 10px;\n            }\n        }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <h1>Welcome to Deli Delight - Your Favorite Sandwich Spot</h1>\n        <h2>We value your feedback to improve our services</h2>\n        <div class=\"section\">\n            <p>Check out our menu with the freshest ingredients. Special offers and promotions for our customers await!</p>\n        </div>\n        <form class=\"feedback-form\">\n            <div class=\"form-group\">\n                <label for=\"email\">Email Address</label>\n                <input type=\"email\" id=\"email\" name=\"email\" required placeholder=\"you@example.com\">\n            </div>\n            <div class=\"form-group\">\n                <label>Rate your experience:</label>\n                <div class=\"rating\">\n                    <input type=\"radio\" name=\"rating\" id=\"star1\" value=\"1\"><label for=\"star1\">★</label>\n                    <input type=\"radio\" name=\"rating\" id=\"star2\" value=\"2\"><label for=\"star2\">★</label>\n                    <input type=\"radio\" name=\"rating\" id=\"star3\" value=\"3\"><label for=\"star3\">★</label>\n                    <input type=\"radio\" name=\"rating\" id=\"star4\" value=\"4\"><label for=\"star4\">★</label>\n                    <input type=\"radio\" name=\"rating\" id=\"star5\" value=\"5\"><label for=\"star5\">★</label>\n                </div>\n            </div>\n            <div class=\"form-group\">\n                <label for=\"comments\">Comments</label>\n                <textarea id=\"comments\" name=\"comments\" rows=\"4\" placeholder=\"Write your comments here...\"></textarea>\n            </div>\n            <button type=\"submit\">Leave Feedback</button>\n        </form>\n    </div>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_010.md"
+      ]
+    },
+    {
+      "id": "req_011",
+      "request": "can you build a landing page for resturant",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/culinary-delights-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/culinary-delights-plugin-code.js",
+      "designBrief": {
+        "pageType": "Landing Page",
+        "brandName": "Culinary Delights",
+        "audience": "Food enthusiasts and local diners",
+        "mood": "Inviting and warm",
+        "colorPalette": [
+          "#D64C4C",
+          "#F4D35E",
+          "#5CDB95",
+          "#FFFFFF",
+          "#394B2B"
+        ],
+        "typography": "Open Sans, sans-serif",
+        "sections": [
+          "Hero Image with Restaurant's Signature Dish",
+          "About Us Section",
+          "Menu Overview",
+          "Testimonials",
+          "Contact Information",
+          "Location with Maps Integration",
+          "Reservation Button"
+        ],
+        "primaryCta": "Make a Reservation",
+        "acceptanceCriteria": [
+          "Landing page should load within 2 seconds",
+          "be responsive on all devices",
+          "and include all sections listed."
+        ],
+        "implementationPlan": [
+          "1. Create Figma design for landing page. 2. Gather feedback from team. 3. Once approved",
+          "convert Figma design to React components. 4. Implement styling and functionality. 5. Test across devices."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "Landing page designed for 'Culinary Delights', incorporating multiple sections such as a hero image, about us, menu overview, testimonials, contact information, location, and a reservation button. The design emphasizes warmth and inviting aesthetics suitable for food enthusiasts.",
+      "acceptanceCriteria": [
+        "Landing page should load within 2 seconds",
+        "be responsive on all devices",
+        "and include all sections listed."
+      ],
+      "implementationPlan": [
+        "1. Create Figma design for landing page. 2. Gather feedback from team. 3. Once approved",
+        "convert Figma design to React components. 4. Implement styling and functionality. 5. Test across devices."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Culinary Delights</title>\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Open Sans', sans-serif; background-color: #FFFFFF; color: #394B2B; line-height: 1.6; }\n        header { background-color: #D64C4C; color: white; padding: 20px; text-align: center; }\n        h1 { margin-bottom: 10px; font-size: 2.5em; }\n        h2 { margin: 20px 0; font-size: 1.8em; }\n        .container { width: 90%; max-width: 1200px; margin: auto; }\n        .hero { background: url('your-signature-dish-image-url') no-repeat center center/cover; height: 400px; }\n        .section { padding: 40px 20px; }\n        .menu, .about, .testimonials, .contact { display: flex; flex-direction: column; align-items: center; }\n        .card { background: #F4D35E; padding: 20px; margin: 10px; border-radius: 8px; width: 100%; max-width: 300px; text-align: center; }\n        button { background-color: #5CDB95; color: white; border: none; padding: 15px 20px; cursor: pointer; border-radius: 5px; }\n        button:hover { background-color: #394B2B; }\n        @media (min-width: 768px) { .menu, .about, .testimonials, .contact { flex-direction: row; justify-content: center; }\n        }\n    </style>\n</head>\n<body>\n    <header>\n        <h1>Culinary Delights</h1>\n        <h2>Your Destination for Flavor</h2>\n    </header>\n    <div class=\"hero\"></div>\n    <div class=\"container\">\n        <section class=\"about section\">\n            <h2>About Us</h2>\n            <p>We bring you the best culinary experiences with our handcrafted meals.</p>\n        </section>\n        <section class=\"menu section\">\n            <h2>Menu Overview</h2>\n            <div class=\"card\">\n                <h3>Signature Dish</h3>\n                <p>A taste sensation just for you!</p>\n            </div>\n        </section>\n        <section class=\"testimonials section\">\n            <h2>What Our Customers Say</h2>\n            <div class=\"card\">\n                <p>&quot;The best dining experience in town!&quot;</p>\n                <p>- Happy Customer</p>\n            </div>\n        </section>\n        <section class=\"contact section\">\n            <h2>Contact Information</h2>\n            <p>Email: info@culinarydelights.com</p>\n            <p>Phone: (123) 456-7890</p>\n        </section>\n        <section class=\"location section\">\n            <h2>Find Us Here</h2>\n            <p>Location map integration coming soon!</p>\n        </section>\n        <button>Make a Reservation</button>\n    </div>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_011.md"
       ]
     }
   ]
