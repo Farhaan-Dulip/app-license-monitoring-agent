@@ -492,7 +492,7 @@ async function callOpenAiJsonStrictRaw(prompt: string): Promise<unknown> {
       messages: [
         {
           role: 'system',
-          content: 'You are an autonomous React code generation agent. Return valid JSON only. Do not include markdown fences.'
+          content: 'You are an autonomous senior React product designer and frontend engineer. Generate polished, production-quality UI, not default HTML. Return valid JSON only. Do not include markdown fences.'
         },
         {
           role: 'user',
@@ -857,6 +857,11 @@ async function generateReactFromFigmaDesign(input: FigmaDesignResults): Promise<
     'Use React function components and plain CSS only. Do not import external UI libraries or image assets.',
     'App.jsx must import ./App.css and export a default component.',
     'CSS must be responsive for mobile and desktop and must avoid text overlap.',
+    'Visual quality is mandatory: create a refined, modern, high-fidelity page with strong spacing, hierarchy, custom form/control styling, hover/focus states, responsive layout, and polished color contrast.',
+    'Do not output a plain centered form, unstyled browser-default controls, default serif typography, or sparse single-panel UI.',
+    'If the prompt asks for a form, wrap it in a complete branded experience with a header/hero, supporting content, status/benefit cards, and an intentionally styled form surface.',
+    'Use only local CSS in App.css. Include a global reset, body background, typography, layout shell, button states, input states, mobile breakpoints, and accessible focus styles.',
+    'Keep colors balanced and professional. Do not rely on a single pale background color as the dominant visual system.',
     'The UI must fit the actual prompt and design brief, not a fixed restaurant template.',
     '',
     `Original Slack prompt: ${input.requestedWork}`,
