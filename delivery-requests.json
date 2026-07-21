@@ -1,0 +1,63 @@
+{
+  "organization": "Enterprise Dev Corp",
+  "lastUpdated": "2026-07-21T11:59:34.539Z",
+  "requests": [
+    {
+      "id": "req_001",
+      "request": "Implement the onboarding dashboard from the linked Figma design",
+      "requester": "product.manager@company.com",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21"
+    },
+    {
+      "id": "req_002",
+      "request": "Create a Slack intake workflow for design-to-deployment delivery",
+      "requester": "engineering.lead@company.com",
+      "workstream": "Platform Automation",
+      "status": "approved",
+      "lastUpdatedAt": "2026-07-20"
+    },
+    {
+      "id": "req_003",
+      "request": "Prepare a stale design implementation draft for replacement",
+      "requester": "former.owner@company.com",
+      "workstream": "Design Systems",
+      "status": "draft",
+      "lastUpdatedAt": "2026-03-01"
+    },
+    {
+      "id": "req_004",
+      "request": "build me a landing page for a restaurant",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/ember-sage-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/ember-sage-plugin-code.js",
+      "llmSummary": "Generated a responsive React restaurant landing page for Ember & Sage from the Figma design spec.",
+      "acceptanceCriteria": [
+        "Responsive restaurant landing page renders on mobile and desktop",
+        "Hero section includes brand name, cuisine positioning, and reservation CTA",
+        "Menu preview shows at least three featured dishes",
+        "Final page includes GitHub, Linear, Railway, and Figma traceability"
+      ],
+      "implementationPlan": [
+        "Create a Figma-ready frame specification for the landing page",
+        "Generate React component structure from the design spec",
+        "Write CSS for responsive layout, palette, spacing, and cards",
+        "Commit generated artifacts and delivery metadata through GitHub governance"
+      ],
+      "riskLevel": "low",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_004.md"
+      ]
+    }
+  ]
+}
