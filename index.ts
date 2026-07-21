@@ -529,25 +529,26 @@ async function callOpenAiJsonStrictRaw(prompt: string): Promise<unknown> {
   return JSON.parse(extractChatCompletionText(await response.json()));
 }
 
-// Produces a reliable local design brief for the restaurant landing-page demo when the LLM is unavailable.
+// Produces a reliable local design brief when the LLM is unavailable.
 function fallbackDesignBrief(requestedWork: string): DesignBrief {
+  const normalizedWork = requestedWork.trim() || 'a modern product experience';
   return {
-    pageType: 'restaurant landing page',
-    brandName: 'Ember & Sage',
-    audience: 'local diners looking for a polished dinner reservation experience',
-    mood: 'warm, refined, appetizing, modern',
-    colorPalette: ['#101820', '#f7efe2', '#c94f3d', '#d7a86e', '#355e4b'],
-    typography: 'Elegant serif display headings with clean sans-serif body text',
-    sections: ['Navigation', 'Hero reservation CTA', 'Signature dishes', 'Chef story', 'Private dining CTA', 'Footer'],
-    primaryCta: 'Reserve a Table',
+    pageType: 'product marketing page',
+    brandName: 'Northstar Studio',
+    audience: 'prospective users evaluating whether the experience solves their problem',
+    mood: 'confident, modern, high-trust, and approachable',
+    colorPalette: ['#0f172a', '#f8fafc', '#0ea5e9', '#14b8a6', '#f97316'],
+    typography: 'Expressive display heading paired with a clean sans-serif body',
+    sections: ['Navigation', 'Hero value proposition', 'Feature highlights', 'Use-case or workflow section', 'Primary conversion CTA', 'Footer'],
+    primaryCta: 'Get Started',
     acceptanceCriteria: [
-      'Responsive restaurant landing page renders on mobile and desktop',
-      'Hero section includes brand name, cuisine positioning, and reservation CTA',
-      'Menu preview shows at least three featured dishes',
+      'Responsive UI renders correctly on mobile and desktop',
+      'Hero section communicates clear value and includes a primary CTA',
+      'Core sections map to the request intent and maintain strong visual hierarchy',
       'Final page includes GitHub, Linear, Railway, and Figma traceability'
     ],
     implementationPlan: [
-      'Create a Figma-ready frame specification for the landing page',
+      `Create a Figma-ready frame specification aligned to: ${normalizedWork}`,
       'Generate React component structure from the design spec',
       'Write CSS for responsive layout, palette, spacing, and cards',
       'Commit generated artifacts and delivery metadata through GitHub governance'
@@ -639,7 +640,7 @@ function normalizeDesignBrief(rawBrief: unknown, requestedWork: string): DesignB
 // Uses an LLM to convert the Slack prompt into a structured product/design brief.
 async function generateDesignBriefWithLlm(context: ExecutionContext): Promise<DesignBriefResults> {
   const prompt = [
-    'Return JSON for a landing-page design brief.',
+    'Return JSON for a design brief that matches the Slack prompt domain and intent.',
     `Slack requester: ${context.requester}`,
     `Slack prompt: ${context.requestedWork}`,
     'The user wants the Figma agent to create the design first, then convert that design to React.',
@@ -647,9 +648,9 @@ async function generateDesignBriefWithLlm(context: ExecutionContext): Promise<De
     'Important: colorPalette must be an array of hex color strings.',
     'Important: typography, primaryCta, and every sections item must be plain strings.',
     'Important: riskLevel must be exactly one of: low, medium, high.',
-    'Use realistic restaurant landing-page content if the prompt is vague.',
-    'For restaurant landing pages, the brief must focus on reservations, menu highlights, ambience, chef/story, hours/location, and private dining or events.',
-    'Do not reinterpret a restaurant landing page as a feedback form, survey, admin tool, or generic contact form unless the Slack prompt explicitly asks for that.'
+    'Use realistic, domain-appropriate content inferred from the prompt.',
+    'Do not force a specific industry, theme, or vertical when the prompt asks for something else.',
+    'When the prompt is vague, choose a plausible default domain and keep the brief internally consistent.'
   ].join('\n');
 
   const rawBrief = await callOpenAiJson(prompt, z.unknown(), fallbackDesignBrief(context.requestedWork));
@@ -670,7 +671,7 @@ const palette = ${palette};
 
 async function main() {
   const frame = figma.createFrame();
-  frame.name = ${JSON.stringify(brief.brandName)} + ' - Restaurant Landing Page';
+  frame.name = ${JSON.stringify(brief.brandName)} + ' - Generated Experience';
   frame.resize(1440, 2200);
   frame.fills = [{ type: 'SOLID', color: hexToRgb(palette[1] || '#f7efe2') }];
   frame.layoutMode = 'VERTICAL';
@@ -721,7 +722,7 @@ async function main() {
 
   figma.currentPage.appendChild(frame);
   figma.viewport.scrollAndZoomIntoView([frame]);
-  figma.closePlugin('Restaurant landing page design generated.');
+  figma.closePlugin('Design generated from delivery brief.');
 }
 
 function hexToRgb(hex) {
@@ -828,10 +829,10 @@ async function createFigmaDesignFromBrief(input: DesignBriefResults): Promise<Fi
     elevation: ['subtle card shadow', 'hero media shadow', 'sticky nav blur']
   };
   const layoutBlueprint = {
-    desktop: '1440px marketing page with sticky nav, full first-viewport hero, asymmetric content/media composition, menu card grid, story band, reservation or conversion panel, and footer.',
-    tablet: 'Two-column sections collapse selectively while maintaining strong hierarchy and generous spacing.',
-    mobile: 'Single-column flow with compact navigation, readable hero headline, full-width CTAs, stacked cards, and no text overlap.',
-    qualityBar: 'The generated React implementation should feel like a finished product landing page, not a wireframe or plain form.'
+    desktop: '1440px responsive experience with clear navigation, high-impact hero, intentional section hierarchy, supporting content blocks, conversion-focused panels, and a polished footer.',
+    tablet: 'Selective two-column layouts that collapse gracefully while preserving hierarchy and spacing rhythm.',
+    mobile: 'Single-column flow with readable typography, full-width CTAs, stacked cards, and no content overlap.',
+    qualityBar: 'The generated React implementation should feel production-ready and domain-appropriate, not a wireframe or plain form.'
   };
   const interactionNotes = [
     'Primary CTA needs hover, active, and focus-visible states.',
@@ -865,7 +866,7 @@ async function createFigmaDesignFromBrief(input: DesignBriefResults): Promise<Fi
     ...input,
     figmaDesign: {
       fileName: `${input.designBrief.brandName} Landing Page`,
-      frameName: `${input.designBrief.brandName} - Restaurant Landing Page`,
+      frameName: `${input.designBrief.brandName} - Generated Experience`,
       figmaUrl: optionalEnv('FIGMA_FILE_URL') ?? null,
       pluginPayloadPath,
       designSpecPath,
@@ -905,11 +906,11 @@ async function generateReactFromFigmaDesign(input: FigmaDesignResults, reviewerF
     'Visual quality is mandatory: create a refined, modern, high-fidelity page with strong spacing, hierarchy, custom form/control styling, hover/focus states, responsive layout, and polished color contrast.',
     'Do not output a plain centered form, unstyled browser-default controls, default serif typography, or sparse single-panel UI.',
     'If the prompt asks for a form, wrap it in a complete branded experience with a header/hero, supporting content, status/benefit cards, and an intentionally styled form surface.',
-    'If the prompt asks for a restaurant landing page, create a complete restaurant marketing page: nav, full hero, cuisine positioning, reservation CTA, menu highlights, ambience/story section, hours/location details, and footer.',
-    'For restaurant landing pages, do not generate a feedback form unless the prompt explicitly asks for feedback collection.',
+    'If the prompt specifies a domain, include the expected domain sections and conversion path for that domain.',
+    'Do not reinterpret the requested experience as a feedback form, survey, or admin tool unless the prompt explicitly asks for that.',
     'Use only local CSS in App.css. Include a global reset, body background, typography, layout shell, button states, input states, mobile breakpoints, and accessible focus styles.',
     'Keep colors balanced and professional. Do not rely on a single pale background color as the dominant visual system.',
-    'The UI must fit the actual prompt and design brief, not a fixed restaurant template.',
+    'The UI must fit the actual prompt and design brief, not a fixed template.',
     reviewerFeedback
       ? `UI Review Agent feedback from the previous attempt. Regenerate the React/CSS to address every point:\n${reviewerFeedback}`
       : 'This is the first generation attempt. Optimize for high visual quality on the first pass.',
@@ -976,7 +977,7 @@ async function reviewReactUiQuality(input: ReactGenerationResults): Promise<UiQu
     'passed must only be true when score is at least 82 and the UI clearly satisfies the Slack prompt.',
     'Findings must be specific and actionable for regenerating React/CSS.',
     'Reject plain centered forms, sparse layouts, browser-default controls, weak color systems, poor hierarchy, missing responsive behavior, and mismatches with the prompt.',
-    'For restaurant landing pages, require nav, full hero, cuisine positioning, reservation CTA, menu highlights, ambience/story, hours/location or footer, and polished responsive styling.',
+    'For domain-specific experiences, require expected domain sections, clear conversion flow, and polished responsive styling.',
     '',
     `Original Slack prompt: ${input.requestedWork}`,
     '',
@@ -1735,7 +1736,7 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
 // Defines the LLM prompt-understanding agent that expands the Slack request into a design brief.
 const designBriefStep = createStep({
   id: 'generateDesignBriefWithLlm',
-  description: 'Uses an LLM to turn the Slack prompt into a structured restaurant landing-page design brief.',
+  description: 'Uses an LLM to turn the Slack prompt into a structured domain-specific design brief.',
   inputSchema: executionContextSchema,
   outputSchema: designBriefResultsSchema,
   execute: async ({ inputData }) => {
@@ -1927,7 +1928,7 @@ async function simulateSlackIntakeCommand() {
 
   const executionContext = {
     requester: 'product.manager@company.com',
-    requestedWork: 'Build me a landing page for a restaurant'
+    requestedWork: 'Build a modern landing page for a fintech startup'
   };
 
   const runtimeResults = await deliveryOrchestrator.execute(executionContext);
@@ -1948,7 +1949,7 @@ function parseSlackCommandText(textValue: unknown, requesterValue?: unknown): Ex
   if (!slackInputText) {
     return {
       requester: requesterFromSlack,
-      requestedWork: 'Build me a landing page for a restaurant'
+      requestedWork: 'Build a modern product landing page'
     };
   }
 
@@ -2054,18 +2055,18 @@ function renderGeneratedUi(requestId: string): string {
   }).parse(payload);
   const brief = parsedPayload.designSpec.brief;
   const palette = [
-    brief.colorPalette[0] ?? '#101820',
-    brief.colorPalette[1] ?? '#f7efe2',
-    brief.colorPalette[2] ?? '#c94f3d',
-    brief.colorPalette[3] ?? '#d7a86e',
-    brief.colorPalette[4] ?? '#355e4b'
+    brief.colorPalette[0] ?? '#0f172a',
+    brief.colorPalette[1] ?? '#f8fafc',
+    brief.colorPalette[2] ?? '#0ea5e9',
+    brief.colorPalette[3] ?? '#14b8a6',
+    brief.colorPalette[4] ?? '#f97316'
   ];
-  const ink = palette[0] ?? '#101820';
-  const canvas = palette[1] ?? '#f7efe2';
-  const accent = palette[2] ?? '#c94f3d';
-  const gold = palette[3] ?? '#d7a86e';
-  const green = palette[4] ?? '#355e4b';
-  const sectionCards = brief.sections.length > 0 ? brief.sections : ['Hero', 'Features', 'Call to action'];
+  const ink = palette[0] ?? '#0f172a';
+  const canvas = palette[1] ?? '#f8fafc';
+  const accent = palette[2] ?? '#0ea5e9';
+  const support = palette[3] ?? '#14b8a6';
+  const emphasis = palette[4] ?? '#f97316';
+  const sectionCards = brief.sections.length > 0 ? brief.sections : ['Overview', 'Highlights', 'Conversion'];
 
   return `<!doctype html>
 <html lang="en">
@@ -2076,21 +2077,21 @@ function renderGeneratedUi(requestId: string): string {
   <style>
     :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: ${escapeHtml(ink)}; background: ${escapeHtml(canvas)}; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: linear-gradient(180deg, ${escapeHtml(canvas)} 0%, #fffaf2 100%); }
+    body { margin: 0; background: linear-gradient(180deg, ${escapeHtml(canvas)} 0%, #f1f5f9 100%); }
     .nav { display: flex; justify-content: space-between; align-items: center; padding: 24px clamp(20px, 5vw, 80px); }
     .nav div { display: flex; gap: 18px; flex-wrap: wrap; }
     a { color: inherit; text-decoration: none; }
     .hero { min-height: 72vh; display: grid; align-content: center; padding: 40px clamp(20px, 7vw, 110px); background: ${escapeHtml(ink)}; color: ${escapeHtml(canvas)}; }
-    .eyebrow { color: ${escapeHtml(gold)}; font-weight: 800; text-transform: uppercase; }
+    .eyebrow { color: ${escapeHtml(support)}; font-weight: 800; text-transform: uppercase; }
     h1 { font-size: clamp(54px, 9vw, 128px); line-height: .92; margin: 10px 0 20px; max-width: 960px; }
-    .lede { font-size: clamp(20px, 3vw, 34px); max-width: 760px; color: rgba(247,239,226,.82); }
+    .lede { font-size: clamp(20px, 3vw, 34px); max-width: 760px; color: color-mix(in srgb, ${escapeHtml(canvas)} 82%, ${escapeHtml(ink)} 18%); }
     .cta, button { width: fit-content; border: 0; border-radius: 999px; background: ${escapeHtml(accent)}; color: #fff; padding: 14px 22px; font-weight: 800; }
     .content-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; padding: 72px clamp(20px, 6vw, 96px); }
     .content-grid article, .final-cta { border-radius: 18px; background: #fff; padding: 28px; box-shadow: 0 18px 45px rgba(16,24,32,.08); }
     .story { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 32px; padding: 40px clamp(20px, 6vw, 96px) 80px; }
     .section-list { display: flex; flex-wrap: wrap; gap: 12px; }
     .section-list span { border: 1px solid rgba(16,24,32,.15); border-radius: 999px; padding: 10px 14px; }
-    .final-cta { margin: 0 clamp(20px, 6vw, 96px) 80px; background: ${escapeHtml(green)}; color: #fff; }
+    .final-cta { margin: 0 clamp(20px, 6vw, 96px) 80px; background: ${escapeHtml(emphasis)}; color: #fff; }
     .meta { padding: 16px clamp(20px, 5vw, 80px); color: #52606b; font-size: 14px; }
     @media (max-width: 760px) { .nav, .story { display: block; } .nav div { margin-top: 12px; } }
   </style>
@@ -2100,7 +2101,7 @@ function renderGeneratedUi(requestId: string): string {
     <strong>${escapeHtml(brief.brandName)}</strong>
     <div>
       <a href="#content">Content</a>
-      <a href="#story">Story</a>
+      <a href="#details">Details</a>
       <a href="#action">Action</a>
     </div>
   </nav>
@@ -2113,18 +2114,18 @@ function renderGeneratedUi(requestId: string): string {
   <section id="content" class="content-grid">
     ${sectionCards.map((section) => `<article><p>Generated Section</p><h2>${escapeHtml(section)}</h2><span>${escapeHtml(brief.mood)} content generated from the design brief.</span></article>`).join('\n    ')}
   </section>
-  <section id="story" class="story">
+  <section id="details" class="story">
     <div>
-      <p class="eyebrow">Generated From Prompt</p>
+      <p class="eyebrow">Generated From Request</p>
       <h2>${escapeHtml(parsedPayload.requestedWork)}</h2>
     </div>
     <div class="section-list">
-      ${brief.sections.map((section) => `<span>${escapeHtml(section)}</span>`).join('\n      ')}
+      ${sectionCards.map((section) => `<span>${escapeHtml(section)}</span>`).join('\n      ')}
     </div>
   </section>
   <section id="action" class="final-cta">
     <h2>${escapeHtml(brief.primaryCta)}</h2>
-    <p>This fallback preview was reconstructed from persisted design metadata.</p>
+    <p>This fallback preview is reconstructed from persisted design metadata when the direct generated preview is unavailable.</p>
     <button>${escapeHtml(brief.primaryCta)}</button>
   </section>
   <p class="meta">Generated by request ${escapeHtml(parsedPayload.requestId)} for ${escapeHtml(parsedPayload.requester)}.</p>
