@@ -75,9 +75,15 @@ const reactGenerationResultSchema = z.object({
     generatedFiles: z.array(generatedFileSchema)
 });
 const uiQualityReviewSchema = z.object({
+    uiQualityScore: z.number().min(0).max(100),
+    codeQualityScore: z.number().min(0).max(100),
+    requirementCoverageScore: z.number().min(0).max(100),
     score: z.number().min(0).max(100),
     passed: z.boolean(),
     findings: z.array(z.string()),
+    codeFindings: z.array(z.string()),
+    requirementFindings: z.array(z.string()),
+    blockingIssues: z.array(z.string()),
     regenerationPrompt: z.string()
 });
 const deliveryDatabaseSchema = z.object({
@@ -87,7 +93,13 @@ const deliveryDatabaseSchema = z.object({
 });
 const executionContextSchema = z.object({
     requester: z.string().min(1),
-    requestedWork: z.string().min(1)
+    requestedWork: z.string().min(1),
+    branchName: z.string().nullable().optional(),
+    prOwner: z.string().nullable().optional(),
+    prRepo: z.string().nullable().optional(),
+    ticketId: z.string().nullable().optional(),
+    ticketUrl: z.string().nullable().optional(),
+    governanceNotes: z.array(z.string()).optional()
 });
 const designBriefResultsSchema = executionContextSchema.extend({
     designBrief: designBriefSchema
@@ -121,7 +133,8 @@ const governanceResultsSchema = mutationResultsSchema.extend({
     approvalUiUrl: z.string(),
     generatedUiUrl: z.string(),
     governanceStatus: z.enum(['created', 'skipped', 'partial']),
-    governanceNotes: z.array(z.string())
+    governanceNotes: z.array(z.string()),
+    releaseReady: z.boolean()
 });
 const workflowResultsSchema = z.object({
     status: z.literal('success'),
@@ -145,6 +158,7 @@ const workflowResultsSchema = z.object({
     generatedUiUrl: z.string(),
     governanceStatus: z.enum(['created', 'skipped', 'partial']),
     governanceNotes: z.array(z.string()),
+    releaseReady: z.boolean(),
     slackDispatched: z.boolean()
 });
 // Reads a required environment variable and stops startup/workflow execution when the value is missing.
@@ -163,6 +177,12 @@ function optionalEnv(name) {
 // Converts any thrown value into a readable string for logs, Slack notes, and API responses.
 function getErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+}
+// Waits between GitHub mergeability checks so GitHub has time to calculate PR state after new commits.
+function delay(milliseconds) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, milliseconds);
+    });
 }
 // Creates a GitHub API client when GITHUB_TOKEN is configured, otherwise disables GitHub governance.
 function getOctokit() {
@@ -216,6 +236,50 @@ function buildApprovalUiUrl(results, ticketId, githubPr) {
 // Builds the Railway-hosted URL for the generated UI output created from the Slack prompt.
 function buildGeneratedUiUrl(results) {
     return `${getPublicBaseUrl()}/generated/${encodeURIComponent(results.requestId)}`;
+}
+// Triggers Railway deployment through a deploy hook when configured.
+async function triggerRailwayDeployment() {
+    const deployHookUrl = optionalEnv('RAILWAY_DEPLOY_HOOK_URL');
+    if (!deployHookUrl) {
+        return 'Railway deploy hook not configured; deployment will follow repository integration settings.';
+    }
+    const response = await fetch(deployHookUrl, { method: 'POST' });
+    if (!response.ok) {
+        throw new Error(`Railway deploy hook failed with ${response.status}: ${await response.text()}`);
+    }
+    return 'Railway deployment hook triggered.';
+}
+// Polls the public generated UI route so Slack only receives an app URL once Railway is serving it.
+async function waitForRailwayGeneratedUi(generatedUiUrl) {
+    const maxChecks = Math.max(1, Number(optionalEnv('RAILWAY_DEPLOY_MAX_CHECKS') ?? '20'));
+    const delayMs = Math.max(500, Number(optionalEnv('RAILWAY_DEPLOY_POLL_MS') ?? '3000'));
+    let lastStatus = 'not checked';
+    for (let attempt = 1; attempt <= maxChecks; attempt += 1) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), Math.min(delayMs, 8000));
+            const response = await fetch(generatedUiUrl, {
+                method: 'GET',
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
+            lastStatus = `${response.status} ${response.statusText}`.trim();
+            if (response.ok) {
+                const body = await response.text();
+                if (!body.includes('"status":"not_found"') && !body.includes('No delivery request was found')) {
+                    return `Railway generated UI is live after ${attempt} check(s).`;
+                }
+                lastStatus = 'generated route returned not_found';
+            }
+        }
+        catch (error) {
+            lastStatus = getErrorMessage(error);
+        }
+        if (attempt < maxChecks) {
+            await delay(delayMs);
+        }
+    }
+    throw new Error(`Railway generated UI was not ready after ${maxChecks} check(s). Last status: ${lastStatus}.`);
 }
 // Creates a Vite middleware server for the generated React app so previews use App.jsx and App.css.
 async function createGeneratedAppViteServer() {
@@ -327,25 +391,26 @@ async function callOpenAiJsonStrictRaw(prompt) {
     }
     return JSON.parse(extractChatCompletionText(await response.json()));
 }
-// Produces a reliable local design brief for the restaurant landing-page demo when the LLM is unavailable.
+// Produces a reliable local design brief when the LLM is unavailable.
 function fallbackDesignBrief(requestedWork) {
+    const normalizedWork = requestedWork.trim() || 'a modern product experience';
     return {
-        pageType: 'restaurant landing page',
-        brandName: 'Ember & Sage',
-        audience: 'local diners looking for a polished dinner reservation experience',
-        mood: 'warm, refined, appetizing, modern',
-        colorPalette: ['#101820', '#f7efe2', '#c94f3d', '#d7a86e', '#355e4b'],
-        typography: 'Elegant serif display headings with clean sans-serif body text',
-        sections: ['Navigation', 'Hero reservation CTA', 'Signature dishes', 'Chef story', 'Private dining CTA', 'Footer'],
-        primaryCta: 'Reserve a Table',
+        pageType: 'product marketing page',
+        brandName: 'Northstar Studio',
+        audience: 'prospective users evaluating whether the experience solves their problem',
+        mood: 'confident, modern, high-trust, and approachable',
+        colorPalette: ['#0f172a', '#f8fafc', '#0ea5e9', '#14b8a6', '#f97316'],
+        typography: 'Expressive display heading paired with a clean sans-serif body',
+        sections: ['Navigation', 'Hero value proposition', 'Feature highlights', 'Use-case or workflow section', 'Primary conversion CTA', 'Footer'],
+        primaryCta: 'Get Started',
         acceptanceCriteria: [
-            'Responsive restaurant landing page renders on mobile and desktop',
-            'Hero section includes brand name, cuisine positioning, and reservation CTA',
-            'Menu preview shows at least three featured dishes',
+            'Responsive UI renders correctly on mobile and desktop',
+            'Hero section communicates clear value and includes a primary CTA',
+            'Core sections map to the request intent and maintain strong visual hierarchy',
             'Final page includes GitHub, Linear, Railway, and Figma traceability'
         ],
         implementationPlan: [
-            'Create a Figma-ready frame specification for the landing page',
+            `Create a Figma-ready frame specification aligned to: ${normalizedWork}`,
             'Generate React component structure from the design spec',
             'Write CSS for responsive layout, palette, spacing, and cards',
             'Commit generated artifacts and delivery metadata through GitHub governance'
@@ -424,7 +489,7 @@ function normalizeDesignBrief(rawBrief, requestedWork) {
 // Uses an LLM to convert the Slack prompt into a structured product/design brief.
 async function generateDesignBriefWithLlm(context) {
     const prompt = [
-        'Return JSON for a landing-page design brief.',
+        'Return JSON for a design brief that matches the Slack prompt domain and intent.',
         `Slack requester: ${context.requester}`,
         `Slack prompt: ${context.requestedWork}`,
         'The user wants the Figma agent to create the design first, then convert that design to React.',
@@ -432,9 +497,9 @@ async function generateDesignBriefWithLlm(context) {
         'Important: colorPalette must be an array of hex color strings.',
         'Important: typography, primaryCta, and every sections item must be plain strings.',
         'Important: riskLevel must be exactly one of: low, medium, high.',
-        'Use realistic restaurant landing-page content if the prompt is vague.',
-        'For restaurant landing pages, the brief must focus on reservations, menu highlights, ambience, chef/story, hours/location, and private dining or events.',
-        'Do not reinterpret a restaurant landing page as a feedback form, survey, admin tool, or generic contact form unless the Slack prompt explicitly asks for that.'
+        'Use realistic, domain-appropriate content inferred from the prompt.',
+        'Do not force a specific industry, theme, or vertical when the prompt asks for something else.',
+        'When the prompt is vague, choose a plausible default domain and keep the brief internally consistent.'
     ].join('\n');
     const rawBrief = await callOpenAiJson(prompt, z.unknown(), fallbackDesignBrief(context.requestedWork));
     return {
@@ -451,7 +516,7 @@ const palette = ${palette};
 
 async function main() {
   const frame = figma.createFrame();
-  frame.name = ${JSON.stringify(brief.brandName)} + ' - Restaurant Landing Page';
+  frame.name = ${JSON.stringify(brief.brandName)} + ' - Generated Experience';
   frame.resize(1440, 2200);
   frame.fills = [{ type: 'SOLID', color: hexToRgb(palette[1] || '#f7efe2') }];
   frame.layoutMode = 'VERTICAL';
@@ -502,7 +567,7 @@ async function main() {
 
   figma.currentPage.appendChild(frame);
   figma.viewport.scrollAndZoomIntoView([frame]);
-  figma.closePlugin('Restaurant landing page design generated.');
+  figma.closePlugin('Design generated from delivery brief.');
 }
 
 function hexToRgb(hex) {
@@ -597,10 +662,10 @@ async function createFigmaDesignFromBrief(input) {
         elevation: ['subtle card shadow', 'hero media shadow', 'sticky nav blur']
     };
     const layoutBlueprint = {
-        desktop: '1440px marketing page with sticky nav, full first-viewport hero, asymmetric content/media composition, menu card grid, story band, reservation or conversion panel, and footer.',
-        tablet: 'Two-column sections collapse selectively while maintaining strong hierarchy and generous spacing.',
-        mobile: 'Single-column flow with compact navigation, readable hero headline, full-width CTAs, stacked cards, and no text overlap.',
-        qualityBar: 'The generated React implementation should feel like a finished product landing page, not a wireframe or plain form.'
+        desktop: '1440px responsive experience with clear navigation, high-impact hero, intentional section hierarchy, supporting content blocks, conversion-focused panels, and a polished footer.',
+        tablet: 'Selective two-column layouts that collapse gracefully while preserving hierarchy and spacing rhythm.',
+        mobile: 'Single-column flow with readable typography, full-width CTAs, stacked cards, and no content overlap.',
+        qualityBar: 'The generated React implementation should feel production-ready and domain-appropriate, not a wireframe or plain form.'
     };
     const interactionNotes = [
         'Primary CTA needs hover, active, and focus-visible states.',
@@ -632,7 +697,7 @@ async function createFigmaDesignFromBrief(input) {
         ...input,
         figmaDesign: {
             fileName: `${input.designBrief.brandName} Landing Page`,
-            frameName: `${input.designBrief.brandName} - Restaurant Landing Page`,
+            frameName: `${input.designBrief.brandName} - Generated Experience`,
             figmaUrl: optionalEnv('FIGMA_FILE_URL') ?? null,
             pluginPayloadPath,
             designSpecPath,
@@ -670,11 +735,11 @@ async function generateReactFromFigmaDesign(input, reviewerFeedback) {
         'Visual quality is mandatory: create a refined, modern, high-fidelity page with strong spacing, hierarchy, custom form/control styling, hover/focus states, responsive layout, and polished color contrast.',
         'Do not output a plain centered form, unstyled browser-default controls, default serif typography, or sparse single-panel UI.',
         'If the prompt asks for a form, wrap it in a complete branded experience with a header/hero, supporting content, status/benefit cards, and an intentionally styled form surface.',
-        'If the prompt asks for a restaurant landing page, create a complete restaurant marketing page: nav, full hero, cuisine positioning, reservation CTA, menu highlights, ambience/story section, hours/location details, and footer.',
-        'For restaurant landing pages, do not generate a feedback form unless the prompt explicitly asks for feedback collection.',
+        'If the prompt specifies a domain, include the expected domain sections and conversion path for that domain.',
+        'Do not reinterpret the requested experience as a feedback form, survey, or admin tool unless the prompt explicitly asks for that.',
         'Use only local CSS in App.css. Include a global reset, body background, typography, layout shell, button states, input states, mobile breakpoints, and accessible focus styles.',
         'Keep colors balanced and professional. Do not rely on a single pale background color as the dominant visual system.',
-        'The UI must fit the actual prompt and design brief, not a fixed restaurant template.',
+        'The UI must fit the actual prompt and design brief, not a fixed template.',
         reviewerFeedback
             ? `UI Review Agent feedback from the previous attempt. Regenerate the React/CSS to address every point:\n${reviewerFeedback}`
             : 'This is the first generation attempt. Optimize for high visual quality on the first pass.',
@@ -707,32 +772,52 @@ async function generateReactFromFigmaDesign(input, reviewerFeedback) {
 // Normalizes UI reviewer output so the workflow can handle minor LLM response-shape drift.
 function normalizeUiQualityReview(rawReview) {
     const rawRecord = rawReview && typeof rawReview === 'object' ? rawReview : {};
-    const numericScore = Number(rawRecord.score ?? rawRecord.qualityScore ?? rawRecord.uiQualityScore ?? 0);
+    const numericScore = Number(rawRecord.score ?? rawRecord.qualityScore ?? rawRecord.overallScore ?? 0);
     const score = Math.max(0, Math.min(100, Number.isFinite(numericScore) ? numericScore : 0));
+    const uiQualityScoreRaw = Number(rawRecord.uiQualityScore ?? score);
+    const codeQualityScoreRaw = Number(rawRecord.codeQualityScore ?? score);
+    const requirementCoverageScoreRaw = Number(rawRecord.requirementCoverageScore ?? rawRecord.businessRequirementScore ?? score);
+    const uiQualityScore = Math.max(0, Math.min(100, Number.isFinite(uiQualityScoreRaw) ? uiQualityScoreRaw : score));
+    const codeQualityScore = Math.max(0, Math.min(100, Number.isFinite(codeQualityScoreRaw) ? codeQualityScoreRaw : score));
+    const requirementCoverageScore = Math.max(0, Math.min(100, Number.isFinite(requirementCoverageScoreRaw) ? requirementCoverageScoreRaw : score));
     const findings = valueToTextArray(rawRecord.findings ?? rawRecord.issues ?? rawRecord.recommendations, [
-        'UI review response was incomplete; regenerate with stronger visual hierarchy, spacing, responsive layout, and polished styling.'
+        'Review response was incomplete; regenerate with stronger UI polish, cleaner React/CSS architecture, and tighter requirement coverage.'
     ]);
-    const regenerationPrompt = valueToText(rawRecord.regenerationPrompt ?? rawRecord.feedback ?? rawRecord.revisionPrompt, findings.join('\n'));
-    const passed = typeof rawRecord.passed === 'boolean' ? rawRecord.passed : score >= 82;
+    const codeFindings = valueToTextArray(rawRecord.codeFindings ?? rawRecord.bestPracticeFindings ?? rawRecord.codeIssues, []);
+    const requirementFindings = valueToTextArray(rawRecord.requirementFindings ?? rawRecord.businessRequirementFindings ?? rawRecord.requirementGaps, []);
+    const blockingIssues = valueToTextArray(rawRecord.blockingIssues ?? rawRecord.blockers, []);
+    const regenerationPrompt = valueToText(rawRecord.regenerationPrompt ?? rawRecord.feedback ?? rawRecord.revisionPrompt, [...findings, ...codeFindings, ...requirementFindings, ...blockingIssues].join('\n'));
+    const passed = typeof rawRecord.passed === 'boolean'
+        ? rawRecord.passed
+        : score >= 82 && uiQualityScore >= 80 && codeQualityScore >= 80 && requirementCoverageScore >= 80 && blockingIssues.length === 0;
     return uiQualityReviewSchema.parse({
+        uiQualityScore,
+        codeQualityScore,
+        requirementCoverageScore,
         score,
-        passed: passed && score >= 82,
+        passed: passed && score >= 82 && blockingIssues.length === 0,
         findings,
+        codeFindings,
+        requirementFindings,
+        blockingIssues,
         regenerationPrompt
     });
 }
-// Reviews generated React/CSS for visual quality, prompt fit, responsiveness, and production polish.
+// Reviews generated React/CSS for visual quality, code quality, and business requirement coverage.
 async function reviewReactUiQuality(input) {
     const appJsx = input.reactGeneration.generatedFiles.find((file) => file.path === 'generated-app/src/App.jsx')?.content ?? '';
     const appCss = input.reactGeneration.generatedFiles.find((file) => file.path === 'generated-app/src/App.css')?.content ?? '';
     const prompt = [
-        'Review this generated React/Vite UI as a strict senior product designer.',
-        'Return JSON only with keys: score, passed, findings, regenerationPrompt.',
-        'score must be a number from 0 to 100.',
-        'passed must only be true when score is at least 82 and the UI clearly satisfies the Slack prompt.',
-        'Findings must be specific and actionable for regenerating React/CSS.',
-        'Reject plain centered forms, sparse layouts, browser-default controls, weak color systems, poor hierarchy, missing responsive behavior, and mismatches with the prompt.',
-        'For restaurant landing pages, require nav, full hero, cuisine positioning, reservation CTA, menu highlights, ambience/story, hours/location or footer, and polished responsive styling.',
+        'Review this generated React/Vite implementation as a principal frontend reviewer.',
+        'Return JSON only with keys: uiQualityScore, codeQualityScore, requirementCoverageScore, score, passed, findings, codeFindings, requirementFindings, blockingIssues, regenerationPrompt.',
+        'Each score must be a number from 0 to 100.',
+        'passed must only be true when score is at least 82, all sub-scores are at least 80, and there are no blockingIssues.',
+        'findings should summarize overall quality gaps.',
+        'codeFindings must focus on React/CSS correctness, maintainability, accessibility, responsiveness, and best practices.',
+        'requirementFindings must focus on whether business intent from the Slack prompt and acceptance criteria is fully covered.',
+        'blockingIssues should only contain severe release blockers.',
+        'regenerationPrompt must be directly actionable for regenerating improved App.jsx and App.css.',
+        'Reject plain centered forms, sparse layouts, browser-default controls, weak hierarchy, code smells, and requirement mismatch.',
         '',
         `Original Slack prompt: ${input.requestedWork}`,
         '',
@@ -1027,8 +1112,10 @@ async function persistGeneratedArtifacts(results) {
         '## Generated Files',
         ...results.reactGeneration.generatedFiles.map((file) => `- ${file.path}`)
     ].join('\n');
+    // Generated app source files are kept in the feature branch PR and are not written to host runtime storage.
+    const nonGeneratedAppArtifacts = results.reactGeneration.generatedFiles.filter((file) => !file.path.replace(/\\/g, '/').startsWith('generated-app/'));
     await Promise.all([
-        ...results.reactGeneration.generatedFiles.map((file) => writeGeneratedArtifactViaMcp(file)),
+        ...nonGeneratedAppArtifacts.map((file) => writeGeneratedArtifactViaMcp(file)),
         writeGeneratedArtifactViaMcp({ path: planPath, content: planContent })
     ]);
     const updatedRequestArray = results.updatedRequestArray.map((record) => record.id === results.requestId
@@ -1078,8 +1165,11 @@ async function dispatchSlackInteractiveCard(results) {
     const webhookUrl = requiredEnv('SLACK_WEBHOOK_URL');
     const generatedFileList = results.reactGeneration.generatedFiles.map((file) => `\`${file.path}\``).join(', ');
     const figmaPluginSessionUrl = `${getPublicBaseUrl()}/api/figma/session/${encodeURIComponent(results.requestId)}`;
+    const releaseStatusLine = results.releaseReady
+        ? `*Generated UI:* <${results.generatedUiUrl}|Open generated page>`
+        : '*Generated UI:* Pending merge/deployment. Review PR status below.';
     const governanceLines = [
-        `*Generated UI:* <${results.generatedUiUrl}|Open generated page>`,
+        releaseStatusLine,
         results.prUrl ? `*GitHub Evidence PR:* <${results.prUrl}|Review PR>` : '*GitHub Evidence PR:* Not created',
         results.ticketUrl ? `*Linear Governance Ticket:* <${results.ticketUrl}|View ticket>` : '*Linear Governance Ticket:* Not created',
         `*Governance Status:* ${results.governanceStatus}`,
@@ -1121,8 +1211,8 @@ async function dispatchSlackInteractiveCard(results) {
                     {
                         type: 'button',
                         style: 'primary',
-                        text: { type: 'plain_text', text: 'Open Generated UI' },
-                        url: results.generatedUiUrl
+                        text: { type: 'plain_text', text: results.releaseReady ? 'Open Generated UI' : 'Open Approval + Governance' },
+                        url: results.releaseReady ? results.generatedUiUrl : results.approvalUiUrl
                     }
                 ]
             }
@@ -1170,8 +1260,8 @@ async function upsertGitHubFile(octokit, owner, repo, branchName, filePath, cont
     };
     await octokit.repos.createOrUpdateFileContents(sha ? { ...requestParameters, sha } : requestParameters);
 }
-// Creates a GitHub branch, commits generated React/Figma/database evidence, and opens a PR.
-async function createGitHubEvidencePr(results) {
+// Creates a GitHub branch from the configured base branch so generated artifacts can be committed before PR review.
+async function createGitHubEvidenceBranch(requester) {
     const octokit = getOctokit();
     const owner = optionalEnv('GITHUB_REPO_OWNER');
     const repo = optionalEnv('GITHUB_REPO_NAME');
@@ -1180,67 +1270,29 @@ async function createGitHubEvidencePr(results) {
         return null;
     }
     const timestamp = Math.floor(Date.now() / 1000);
-    const branchName = `delivery/request-${results.requester.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}`;
-    const updatedData = {
-        organization: results.database.organization,
-        lastUpdated: results.database.lastUpdated,
-        requests: results.updatedRequestArray
-    };
+    const branchName = `delivery/request-${requester.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}`;
     const { data: baseRef } = await octokit.git.getRef({ owner, repo, ref: `heads/${baseBranch}` });
-    await octokit.git.createRef({
-        owner,
-        repo,
-        ref: `refs/heads/${branchName}`,
-        sha: baseRef.object.sha
-    });
-    await upsertGitHubFile(octokit, owner, repo, branchName, 'delivery-requests.json', `${JSON.stringify(updatedData, null, 2)}\n`, `[Governance] Track AI delivery request for ${results.requester}`);
-    const localArtifactPaths = new Set([
-        results.figmaDesign.designSpecPath,
-        results.figmaDesign.pluginPayloadPath,
-        ...results.reactGeneration.generatedFiles.map((file) => file.path),
-        ...(results.updatedRequestArray.find((record) => record.id === results.requestId)?.generatedFiles ?? [])
-    ]);
-    for (const artifactPath of localArtifactPaths) {
-        const absoluteArtifactPath = resolveGeneratedArtifactPath(artifactPath);
-        if (!fs.existsSync(absoluteArtifactPath)) {
-            console.warn(`Skipping missing generated artifact for GitHub PR: ${artifactPath}`);
-            continue;
-        }
-        await upsertGitHubFile(octokit, owner, repo, branchName, artifactPath, fs.readFileSync(absoluteArtifactPath, 'utf-8'), `[Generated Artifact] Add ${artifactPath} for ${results.requestId}`);
+    try {
+        await octokit.git.createRef({
+            owner,
+            repo,
+            ref: `refs/heads/${branchName}`,
+            sha: baseRef.object.sha
+        });
     }
-    const { data: pullRequest } = await octokit.pulls.create({
-        owner,
-        repo,
-        title: `[AI Delivery Request] ${results.requestedWork}`,
-        head: branchName,
-        base: baseBranch,
-        body: [
-            'Automated governance evidence for Slack-triggered AI engineering delivery workflow.',
-            '',
-            `- Requester: ${results.requester}`,
-            `- Requested work: ${results.requestedWork}`,
-            `- Request ID: ${results.requestId}`,
-            `- Figma design spec: ${results.figmaDesign.designSpecPath}`,
-            `- Figma plugin payload: ${results.figmaDesign.pluginPayloadPath}`,
-            `- React component: ${results.reactGeneration.componentName}`,
-            `- UI quality score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
-            `- Generated files: ${results.reactGeneration.generatedFiles.map((file) => file.path).join(', ')}`
-        ].join('\n')
-    });
+    catch (error) {
+        if (!(typeof error === 'object' && error !== null && 'status' in error && error.status === 422)) {
+            throw error;
+        }
+    }
     return {
-        prUrl: pullRequest.html_url,
-        prNumber: pullRequest.number,
+        branchName,
         prOwner: owner,
-        prRepo: repo,
-        branchName
+        prRepo: repo
     };
 }
-// Creates a Linear governance ticket and links it to the AI delivery request and optional GitHub PR.
-async function createLinearGovernanceTicket(results, prUrl) {
-    const linear = getLinearClient();
-    if (!linear) {
-        return null;
-    }
+// Resolves LINEAR_TEAM_ID from UUID, key, or team name, with fallback to the first available team.
+async function resolveLinearTeamId(linear) {
     const configuredTeamId = optionalEnv('LINEAR_TEAM_ID');
     let teamId = configuredTeamId;
     if (teamId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(teamId)) {
@@ -1259,102 +1311,360 @@ async function createLinearGovernanceTicket(results, prUrl) {
     if (!teamId) {
         throw new Error('No Linear team was found. Set LINEAR_TEAM_ID or create a Linear team.');
     }
+    return teamId;
+}
+// Creates a Linear intake ticket immediately after Slack command processing starts.
+async function createLinearIntakeTicket(context) {
+    const linear = getLinearClient();
+    if (!linear) {
+        return null;
+    }
+    const teamId = await resolveLinearTeamId(linear);
     const issue = await linear.createIssue({
         teamId,
-        title: `[Governance] AI delivery request for ${results.requester}`,
+        title: `[Intake] AI delivery request for ${context.requester}`,
         description: [
-            'Automated compliance ticket for Slack-triggered AI engineering delivery.',
+            'Intake ticket created before branch/design/PR generation.',
             '',
-            `Requester: ${results.requester}`,
-            `Requested work: ${results.requestedWork}`,
-            `Analysis status: ${results.analysisStatus}`,
-            `Request ID: ${results.requestId}`,
-            `Risk level: ${results.designBrief.riskLevel}`,
-            `Figma design spec: ${results.figmaDesign.designSpecPath}`,
-            `Figma plugin payload: ${results.figmaDesign.pluginPayloadPath}`,
-            `React component: ${results.reactGeneration.componentName}`,
-            `UI quality score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
-            `Generated files: ${results.reactGeneration.generatedFiles.map((file) => file.path).join(', ')}`,
+            `Requester: ${context.requester}`,
+            `Requested work: ${context.requestedWork}`,
             '',
-            'Acceptance criteria:',
-            ...results.designBrief.acceptanceCriteria.map((item) => `- ${item}`),
-            '',
-            'Implementation plan:',
-            ...results.designBrief.implementationPlan.map((item) => `- ${item}`),
-            '',
-            prUrl ? `GitHub evidence PR: ${prUrl}` : 'GitHub evidence PR: not created'
+            'This ticket will be updated/closed when PR review passes and merge completes.'
         ].join('\n'),
         priority: 1
     });
     const issueDetails = await issue.issue;
     return issueDetails?.url ? { ticketId: issueDetails.id, ticketUrl: issueDetails.url } : null;
 }
-// Coordinates optional GitHub PR creation, Linear ticket creation, approval URL generation, and status notes.
+// Provisions governance artifacts early in the flow: first ticket, then branch.
+async function provisionGovernanceIntake(context) {
+    const notes = [...(context.governanceNotes ?? [])];
+    let ticketId = context.ticketId ?? null;
+    let ticketUrl = context.ticketUrl ?? null;
+    let branchName = context.branchName ?? null;
+    let prOwner = context.prOwner ?? null;
+    let prRepo = context.prRepo ?? null;
+    try {
+        if (!ticketId) {
+            const ticket = await createLinearIntakeTicket(context);
+            if (ticket) {
+                ticketId = ticket.ticketId;
+                ticketUrl = ticket.ticketUrl;
+                notes.push('Linear intake ticket created.');
+            }
+            else {
+                notes.push('Linear intake skipped: missing LINEAR_API_KEY.');
+            }
+        }
+    }
+    catch (error) {
+        notes.push(`Linear intake failed: ${getErrorMessage(error)}`);
+    }
+    try {
+        if (!branchName) {
+            const branch = await createGitHubEvidenceBranch(context.requester);
+            if (branch) {
+                branchName = branch.branchName;
+                prOwner = branch.prOwner;
+                prRepo = branch.prRepo;
+                notes.push('GitHub branch created from develop/base branch.');
+            }
+            else {
+                notes.push('GitHub branch creation skipped: missing GitHub configuration.');
+            }
+        }
+    }
+    catch (error) {
+        notes.push(`GitHub branch creation failed: ${getErrorMessage(error)}`);
+    }
+    return {
+        ...context,
+        ticketId,
+        ticketUrl,
+        branchName,
+        prOwner,
+        prRepo,
+        governanceNotes: notes
+    };
+}
+// Commits current database + generated artifacts to the existing governance branch.
+async function syncEvidenceToGitHubBranch(results, owner, repo, branchName) {
+    const octokit = getOctokit();
+    if (!octokit) {
+        throw new Error('GITHUB_TOKEN is not configured; cannot sync branch evidence.');
+    }
+    const updatedData = {
+        organization: results.database.organization,
+        lastUpdated: results.database.lastUpdated,
+        requests: results.updatedRequestArray
+    };
+    await upsertGitHubFile(octokit, owner, repo, branchName, 'delivery-requests.json', `${JSON.stringify(updatedData, null, 2)}\n`, `[Governance] Track AI delivery request for ${results.requester}`);
+    const generatedFileMap = new Map(results.reactGeneration.generatedFiles.map((file) => [file.path.replace(/\\/g, '/'), file.content]));
+    const localArtifactPaths = new Set([
+        results.figmaDesign.designSpecPath,
+        results.figmaDesign.pluginPayloadPath,
+        ...results.reactGeneration.generatedFiles.map((file) => file.path),
+        ...(results.updatedRequestArray.find((record) => record.id === results.requestId)?.generatedFiles ?? [])
+    ]);
+    for (const artifactPath of localArtifactPaths) {
+        const normalizedPath = artifactPath.replace(/\\/g, '/');
+        const generatedContent = generatedFileMap.get(normalizedPath);
+        const content = generatedContent ?? (() => {
+            const absoluteArtifactPath = resolveGeneratedArtifactPath(normalizedPath);
+            if (!fs.existsSync(absoluteArtifactPath)) {
+                return null;
+            }
+            return fs.readFileSync(absoluteArtifactPath, 'utf-8');
+        })();
+        if (!content) {
+            console.warn(`Skipping missing generated artifact for GitHub PR: ${artifactPath}`);
+            continue;
+        }
+        await upsertGitHubFile(octokit, owner, repo, branchName, normalizedPath, content, `[Generated Artifact] Add ${artifactPath} for ${results.requestId}`);
+    }
+}
+// Creates a PR if one does not exist yet for this branch; otherwise returns the existing open PR.
+async function ensureEvidencePullRequest(results, owner, repo, branchName) {
+    const octokit = getOctokit();
+    if (!octokit) {
+        throw new Error('GITHUB_TOKEN is not configured; cannot create PR evidence.');
+    }
+    const baseBranch = optionalEnv('GITHUB_BASE_BRANCH') ?? 'develop';
+    const { data: existing } = await octokit.pulls.list({
+        owner,
+        repo,
+        state: 'open',
+        head: `${owner}:${branchName}`,
+        base: baseBranch
+    });
+    if (existing.length > 0) {
+        const existingPr = existing[0];
+        if (!existingPr) {
+            throw new Error('GitHub returned an empty pull request list unexpectedly.');
+        }
+        return {
+            prUrl: existingPr.html_url,
+            prNumber: existingPr.number
+        };
+    }
+    const { data: pullRequest } = await octokit.pulls.create({
+        owner,
+        repo,
+        title: `[AI Delivery Request] ${results.requestedWork}`,
+        head: branchName,
+        base: baseBranch,
+        body: [
+            'Automated governance evidence for Slack-triggered AI engineering delivery workflow.',
+            '',
+            `- Requester: ${results.requester}`,
+            `- Requested work: ${results.requestedWork}`,
+            `- Request ID: ${results.requestId}`,
+            `- Figma design spec: ${results.figmaDesign.designSpecPath}`,
+            `- Figma plugin payload: ${results.figmaDesign.pluginPayloadPath}`,
+            `- React component: ${results.reactGeneration.componentName}`,
+            `- Overall quality score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
+            `- Generated files: ${results.reactGeneration.generatedFiles.map((file) => file.path).join(', ')}`
+        ].join('\n')
+    });
+    return {
+        prUrl: pullRequest.html_url,
+        prNumber: pullRequest.number
+    };
+}
+// Posts review status comments to the generated evidence PR.
+async function postGitHubPrReviewComment(owner, repo, prNumber, title, bodyLines) {
+    const octokit = getOctokit();
+    if (!octokit) {
+        return;
+    }
+    await octokit.issues.createComment({
+        owner,
+        repo,
+        issue_number: prNumber,
+        body: [
+            `### ${title}`,
+            ...bodyLines
+        ].join('\n')
+    });
+}
+// Applies regenerated outputs back into the delivery database and writes files so the same PR branch can be updated.
+async function persistReviewIteration(results, review, reactGeneration) {
+    const updatedRequestArray = results.updatedRequestArray.map((record) => record.id === results.requestId
+        ? {
+            ...record,
+            llmSummary: reactGeneration.summary,
+            generatedPreviewHtml: reactGeneration.previewHtml,
+            generatedFiles: reactGeneration.generatedFiles.map((file) => file.path),
+            uiQualityScore: review.score,
+            uiQualityFindings: [
+                ...review.findings,
+                ...review.codeFindings,
+                ...review.requirementFindings,
+                ...review.blockingIssues
+            ]
+        }
+        : record);
+    const updatedDatabase = {
+        ...results.database,
+        lastUpdated: new Date().toISOString(),
+        requests: updatedRequestArray
+    };
+    const persistedArtifacts = await persistGeneratedArtifacts({
+        ...results,
+        reactGeneration,
+        uiQualityReview: review,
+        updatedRequestArray,
+        database: updatedDatabase
+    });
+    const mutation = await writeDeliveryDatabaseViaMcp(persistedArtifacts.database);
+    return {
+        ...results,
+        reactGeneration,
+        uiQualityReview: review,
+        updatedRequestArray: persistedArtifacts.updatedRequestArray,
+        database: persistedArtifacts.database,
+        databasePath: mutation.path,
+        recordsUpdated: mutation.recordsUpdated
+    };
+}
+// Coordinates PR creation, review-loop regeneration/comments, auto-merge-on-pass, and ticket closure.
 async function createGovernanceEvidence(results) {
-    const notes = [];
+    const notes = [...(results.governanceNotes ?? [])];
     let prUrl = null;
     let prNumber = null;
-    let prOwner = null;
-    let prRepo = null;
-    let branchName = null;
-    let ticketId = null;
-    let ticketUrl = null;
+    let prOwner = results.prOwner ?? null;
+    let prRepo = results.prRepo ?? null;
+    let branchName = results.branchName ?? null;
+    let ticketId = results.ticketId ?? null;
+    let ticketUrl = results.ticketUrl ?? null;
     const hasGitHubEnv = Boolean(optionalEnv('GITHUB_TOKEN') && optionalEnv('GITHUB_REPO_OWNER') && optionalEnv('GITHUB_REPO_NAME'));
-    const hasLinearEnv = Boolean(optionalEnv('LINEAR_API_KEY'));
+    const maxAttempts = Math.max(1, Number(optionalEnv('REVIEW_MAX_ATTEMPTS') ?? '3'));
+    let workingResults = results;
+    let finalReview;
+    let mergedToBase = false;
+    let generatedUiUrl = buildGeneratedUiUrl(workingResults);
     console.log('Governance env check:', {
         hasGitHubToken: Boolean(optionalEnv('GITHUB_TOKEN')),
         hasGitHubOwner: Boolean(optionalEnv('GITHUB_REPO_OWNER')),
         hasGitHubRepo: Boolean(optionalEnv('GITHUB_REPO_NAME')),
         hasLinearApiKey: Boolean(optionalEnv('LINEAR_API_KEY')),
         hasLinearTeamId: Boolean(optionalEnv('LINEAR_TEAM_ID')),
-        analysisStatus: results.analysisStatus
+        analysisStatus: results.analysisStatus,
+        preProvisionedBranch: branchName,
+        preProvisionedTicket: ticketId
     });
     try {
-        const pr = await createGitHubEvidencePr(results);
-        if (pr) {
-            prUrl = pr.prUrl;
-            prNumber = pr.prNumber;
-            prOwner = pr.prOwner;
-            prRepo = pr.prRepo;
-            branchName = pr.branchName;
-            notes.push('GitHub evidence PR created.');
-        }
-        else if (!hasGitHubEnv) {
-            notes.push('GitHub skipped: missing GITHUB_TOKEN, GITHUB_REPO_OWNER, or GITHUB_REPO_NAME in this runtime.');
+        if (hasGitHubEnv) {
+            if (!branchName || !prOwner || !prRepo) {
+                const branch = await createGitHubEvidenceBranch(results.requester);
+                if (branch) {
+                    branchName = branch.branchName;
+                    prOwner = branch.prOwner;
+                    prRepo = branch.prRepo;
+                    notes.push('GitHub branch created during governance fallback.');
+                }
+            }
+            if (branchName && prOwner && prRepo) {
+                await syncEvidenceToGitHubBranch(workingResults, prOwner, prRepo, branchName);
+                const pr = await ensureEvidencePullRequest(workingResults, prOwner, prRepo, branchName);
+                prUrl = pr.prUrl;
+                prNumber = pr.prNumber;
+                notes.push('GitHub evidence PR raised for generated artifacts.');
+            }
+            else {
+                notes.push('GitHub skipped: branch metadata unavailable.');
+            }
         }
         else {
-            notes.push('GitHub skipped: no PR was returned.');
+            notes.push('GitHub skipped: missing GITHUB_TOKEN, GITHUB_REPO_OWNER, or GITHUB_REPO_NAME in this runtime.');
         }
     }
     catch (error) {
         notes.push(`GitHub evidence PR failed: ${getErrorMessage(error)}`);
         console.error('GitHub governance evidence failure:', error);
     }
-    try {
-        const ticket = await createLinearGovernanceTicket(results, prUrl);
-        if (ticket) {
-            ticketId = ticket.ticketId;
-            ticketUrl = ticket.ticketUrl;
-            notes.push('Linear governance ticket created.');
+    finalReview = workingResults.uiQualityReview ?? await reviewReactUiQuality(workingResults);
+    if (prNumber && prOwner && prRepo) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            if (finalReview.passed) {
+                await postGitHubPrReviewComment(prOwner, prRepo, prNumber, 'Code Review Passed', [
+                    `Overall score: ${finalReview.score}`,
+                    `UI score: ${finalReview.uiQualityScore}`,
+                    `Code score: ${finalReview.codeQualityScore}`,
+                    `Requirement score: ${finalReview.requirementCoverageScore}`,
+                    'Result: ready to merge.'
+                ]);
+                break;
+            }
+            await postGitHubPrReviewComment(prOwner, prRepo, prNumber, `Code Review Attempt ${attempt} Failed`, [
+                `Overall score: ${finalReview.score}`,
+                `UI score: ${finalReview.uiQualityScore}`,
+                `Code score: ${finalReview.codeQualityScore}`,
+                `Requirement score: ${finalReview.requirementCoverageScore}`,
+                '',
+                'Findings:',
+                ...finalReview.findings.map((item) => `- ${item}`),
+                '',
+                'Code findings:',
+                ...(finalReview.codeFindings.length > 0 ? finalReview.codeFindings : ['- None supplied by reviewer']).map((item) => `- ${item}`),
+                '',
+                'Requirement findings:',
+                ...(finalReview.requirementFindings.length > 0 ? finalReview.requirementFindings : ['- None supplied by reviewer']).map((item) => `- ${item}`),
+                '',
+                'Blocking issues:',
+                ...(finalReview.blockingIssues.length > 0 ? finalReview.blockingIssues : ['- None supplied by reviewer']).map((item) => `- ${item}`),
+                '',
+                'Regeneration prompt:',
+                finalReview.regenerationPrompt
+            ]);
+            if (attempt === maxAttempts) {
+                notes.push(`Code review failed after ${maxAttempts} attempt(s); PR left open for manual changes.`);
+                break;
+            }
+            const regenerated = await generateReactFromFigmaDesign(workingResults, finalReview.regenerationPrompt);
+            const regeneratedReview = await reviewReactUiQuality(regenerated);
+            workingResults = await persistReviewIteration(workingResults, regeneratedReview, regenerated.reactGeneration);
+            finalReview = regeneratedReview;
+            await syncEvidenceToGitHubBranch(workingResults, prOwner, prRepo, branchName ?? workingResults.branchName ?? '');
+            notes.push(`Regenerated UI and pushed review iteration ${attempt + 1} to the same PR branch.`);
         }
-        else if (!hasLinearEnv) {
-            notes.push('Linear skipped: missing LINEAR_API_KEY in this runtime.');
-        }
-        else {
-            notes.push('Linear skipped: no ticket URL was returned.');
+        if (finalReview.passed) {
+            try {
+                const mergeResult = await updateGitHubPrFromApproval(prOwner, prRepo, prNumber, 'approved', workingResults.requestId);
+                notes.push(mergeResult);
+                mergedToBase = true;
+                notes.push(await triggerRailwayDeployment());
+                notes.push(await waitForRailwayGeneratedUi(generatedUiUrl));
+            }
+            catch (error) {
+                notes.push(`GitHub merge failed after passing review: ${getErrorMessage(error)}`);
+            }
         }
     }
-    catch (error) {
-        notes.push(`Linear governance ticket failed: ${getErrorMessage(error)}`);
-        console.error('Linear governance ticket failure:', error);
+    else {
+        notes.push('PR review loop skipped because PR metadata was unavailable.');
+    }
+    if (ticketId && mergedToBase) {
+        try {
+            const ticketUpdate = await updateLinearTicketFromApproval(ticketId, 'approved', workingResults.requestId);
+            notes.push(ticketUpdate);
+        }
+        catch (error) {
+            notes.push(`Linear ticket close failed: ${getErrorMessage(error)}`);
+        }
     }
     const createdCount = [prUrl, ticketUrl].filter(Boolean).length;
-    const governanceStatus = createdCount === 2 ? 'created' : createdCount === 0 ? 'skipped' : 'partial';
+    const governanceStatus = mergedToBase
+        ? 'created'
+        : createdCount === 0
+            ? 'skipped'
+            : 'partial';
     const githubPr = prNumber && prOwner && prRepo ? { prNumber, prOwner, prRepo } : null;
-    const approvalUiUrl = buildApprovalUiUrl(results, ticketId, githubPr);
-    const generatedUiUrl = buildGeneratedUiUrl(results);
+    const approvalUiUrl = buildApprovalUiUrl(workingResults, ticketId, githubPr);
+    generatedUiUrl = buildGeneratedUiUrl(workingResults);
     return {
-        ...results,
+        ...workingResults,
+        uiQualityReview: finalReview,
         prUrl,
         prNumber,
         prOwner,
@@ -1365,20 +1675,32 @@ async function createGovernanceEvidence(results) {
         approvalUiUrl,
         generatedUiUrl,
         governanceStatus,
-        governanceNotes: notes
+        governanceNotes: notes,
+        releaseReady: mergedToBase
     };
 }
 // ---------------------------------------------------------
 // NODE 5: Mastra Multi-Step Orchestration State Machine
 // ---------------------------------------------------------
+// Defines the governance intake step that creates a ticket and branch before design/code generation starts.
+const governanceIntakeStep = createStep({
+    id: 'provisionGovernanceIntake',
+    description: 'Creates the Linear intake ticket and GitHub branch before UI generation.',
+    inputSchema: executionContextSchema,
+    outputSchema: executionContextSchema,
+    execute: async ({ inputData }) => {
+        console.log('⏳ Running Node 1: Governance Intake Agent...');
+        return provisionGovernanceIntake(inputData);
+    }
+});
 // Defines the LLM prompt-understanding agent that expands the Slack request into a design brief.
 const designBriefStep = createStep({
     id: 'generateDesignBriefWithLlm',
-    description: 'Uses an LLM to turn the Slack prompt into a structured restaurant landing-page design brief.',
+    description: 'Uses an LLM to turn the Slack prompt into a structured domain-specific design brief.',
     inputSchema: executionContextSchema,
     outputSchema: designBriefResultsSchema,
     execute: async ({ inputData }) => {
-        console.log('⏳ Running Node 1: LLM Prompt Understanding Agent...');
+        console.log('⏳ Running Node 2: LLM Prompt Understanding Agent...');
         return generateDesignBriefWithLlm(inputData);
     }
 });
@@ -1389,7 +1711,7 @@ const figmaDesignStep = createStep({
     inputSchema: designBriefResultsSchema,
     outputSchema: figmaDesignResultsSchema,
     execute: async ({ inputData }) => {
-        console.log('⏳ Running Node 2: Figma Design Agent...');
+        console.log('⏳ Running Node 3: Figma Design Agent...');
         return createFigmaDesignFromBrief(inputData);
     }
 });
@@ -1400,19 +1722,8 @@ const reactGenerationStep = createStep({
     inputSchema: figmaDesignResultsSchema,
     outputSchema: reactGenerationResultsSchema,
     execute: async ({ inputData }) => {
-        console.log('⏳ Running Node 3: React Code Generator Agent...');
+        console.log('⏳ Running Node 4: React Code Generator Agent...');
         return generateReactFromFigmaDesign(inputData);
-    }
-});
-// Defines the UI quality review agent that critiques generated React/CSS and triggers one regeneration when needed.
-const uiQualityReviewStep = createStep({
-    id: 'reviewAndRegenerateReactUi',
-    description: 'Reviews generated UI quality and regenerates React/CSS once if the quality score is too low.',
-    inputSchema: reactGenerationResultsSchema,
-    outputSchema: reactGenerationResultsSchema,
-    execute: async ({ inputData }) => {
-        console.log('Running Node 4: UI Quality Review Agent...');
-        return reviewAndRegenerateReactUi(inputData);
     }
 });
 // Defines the Mastra analysis step that reads delivery state through MCP and creates or updates a request.
@@ -1422,7 +1733,7 @@ const analysisStep = createStep({
     inputSchema: reactGenerationResultsSchema,
     outputSchema: analysisResultsSchema,
     execute: async ({ inputData }) => {
-        console.log('⏳ Running Node 4: Delivery Record Agent...');
+        console.log('⏳ Running Node 5: Delivery Record Agent...');
         return runDeliveryAnalysis(inputData);
     }
 });
@@ -1433,7 +1744,7 @@ const mcpArtifactStep = createStep({
     inputSchema: analysisResultsSchema,
     outputSchema: analysisResultsSchema,
     execute: async ({ inputData }) => {
-        console.log('⏳ Running Node 5: MCP Generated Artifact Mutation...');
+        console.log('⏳ Running Node 6: MCP Generated Artifact Mutation...');
         return persistGeneratedArtifacts(inputData);
     }
 });
@@ -1444,7 +1755,7 @@ const mcpMutationStep = createStep({
     inputSchema: analysisResultsSchema,
     outputSchema: mutationResultsSchema,
     execute: async ({ inputData }) => {
-        console.log('⏳ Running Node 6: MCP Delivery Database Mutation...');
+        console.log('⏳ Running Node 7: MCP Delivery Database Mutation...');
         const mutation = await writeDeliveryDatabaseViaMcp(inputData.database);
         return {
             ...inputData,
@@ -1456,11 +1767,11 @@ const mcpMutationStep = createStep({
 // Defines the Mastra notification step that sends the completed workflow result back to Slack.
 const slackDispatchStep = createStep({
     id: 'dispatchSlackInteractiveCard',
-    description: 'Sends the final Block Kit approval card to Slack.',
+    description: 'Sends the final Block Kit update to Slack after PR review/merge and ticket closure.',
     inputSchema: governanceResultsSchema,
     outputSchema: workflowResultsSchema,
     execute: async ({ inputData }) => {
-        console.log('⏳ Running Node 8: Slack Bot Agent Dispatch...');
+        console.log('⏳ Running Node 9: Slack Bot Agent Dispatch...');
         await dispatchSlackInteractiveCard(inputData);
         console.log('🚀 [Outbound Notification] Slack interactive layout card dispatched successfully.');
         return {
@@ -1485,6 +1796,7 @@ const slackDispatchStep = createStep({
             generatedUiUrl: inputData.generatedUiUrl,
             governanceStatus: inputData.governanceStatus,
             governanceNotes: inputData.governanceNotes,
+            releaseReady: inputData.releaseReady,
             slackDispatched: true
         };
     }
@@ -1492,11 +1804,11 @@ const slackDispatchStep = createStep({
 // Defines the Mastra governance step that creates GitHub and Linear records before approval.
 const governanceStep = createStep({
     id: 'createGovernanceEvidence',
-    description: 'Creates optional GitHub PR and Linear ticket evidence for the delivery request.',
+    description: 'Raises PR, runs code/business/UI review loop, merges on pass, and closes the ticket.',
     inputSchema: mutationResultsSchema,
     outputSchema: governanceResultsSchema,
     execute: async ({ inputData }) => {
-        console.log('⏳ Running Node 7: GitHub + Linear Governance Agents...');
+        console.log('⏳ Running Node 8: GitHub + Linear Governance Agents...');
         return createGovernanceEvidence(inputData);
     }
 });
@@ -1507,10 +1819,10 @@ const engineeringDeliveryWorkflow = createWorkflow({
     inputSchema: executionContextSchema,
     outputSchema: workflowResultsSchema
 })
+    .then(governanceIntakeStep)
     .then(designBriefStep)
     .then(figmaDesignStep)
     .then(reactGenerationStep)
-    .then(uiQualityReviewStep)
     .then(analysisStep)
     .then(mcpArtifactStep)
     .then(mcpMutationStep)
@@ -1551,7 +1863,7 @@ async function simulateSlackIntakeCommand() {
     console.log('Initializing AI Engineering Delivery Pipeline...');
     const executionContext = {
         requester: 'product.manager@company.com',
-        requestedWork: 'Build me a landing page for a restaurant'
+        requestedWork: 'Build a modern landing page for a fintech startup'
     };
     const runtimeResults = await deliveryOrchestrator.execute(executionContext);
     console.log('\n=======================================================');
@@ -1568,7 +1880,7 @@ function parseSlackCommandText(textValue, requesterValue) {
     if (!slackInputText) {
         return {
             requester: requesterFromSlack,
-            requestedWork: 'Build me a landing page for a restaurant'
+            requestedWork: 'Build a modern product landing page'
         };
     }
     const [firstToken = '', ...remainingTokens] = slackInputText.split(/\s+/);
@@ -1665,18 +1977,18 @@ function renderGeneratedUi(requestId) {
     }).parse(payload);
     const brief = parsedPayload.designSpec.brief;
     const palette = [
-        brief.colorPalette[0] ?? '#101820',
-        brief.colorPalette[1] ?? '#f7efe2',
-        brief.colorPalette[2] ?? '#c94f3d',
-        brief.colorPalette[3] ?? '#d7a86e',
-        brief.colorPalette[4] ?? '#355e4b'
+        brief.colorPalette[0] ?? '#0f172a',
+        brief.colorPalette[1] ?? '#f8fafc',
+        brief.colorPalette[2] ?? '#0ea5e9',
+        brief.colorPalette[3] ?? '#14b8a6',
+        brief.colorPalette[4] ?? '#f97316'
     ];
-    const ink = palette[0] ?? '#101820';
-    const canvas = palette[1] ?? '#f7efe2';
-    const accent = palette[2] ?? '#c94f3d';
-    const gold = palette[3] ?? '#d7a86e';
-    const green = palette[4] ?? '#355e4b';
-    const sectionCards = brief.sections.length > 0 ? brief.sections : ['Hero', 'Features', 'Call to action'];
+    const ink = palette[0] ?? '#0f172a';
+    const canvas = palette[1] ?? '#f8fafc';
+    const accent = palette[2] ?? '#0ea5e9';
+    const support = palette[3] ?? '#14b8a6';
+    const emphasis = palette[4] ?? '#f97316';
+    const sectionCards = brief.sections.length > 0 ? brief.sections : ['Overview', 'Highlights', 'Conversion'];
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -1686,21 +1998,21 @@ function renderGeneratedUi(requestId) {
   <style>
     :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: ${escapeHtml(ink)}; background: ${escapeHtml(canvas)}; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: linear-gradient(180deg, ${escapeHtml(canvas)} 0%, #fffaf2 100%); }
+    body { margin: 0; background: linear-gradient(180deg, ${escapeHtml(canvas)} 0%, #f1f5f9 100%); }
     .nav { display: flex; justify-content: space-between; align-items: center; padding: 24px clamp(20px, 5vw, 80px); }
     .nav div { display: flex; gap: 18px; flex-wrap: wrap; }
     a { color: inherit; text-decoration: none; }
     .hero { min-height: 72vh; display: grid; align-content: center; padding: 40px clamp(20px, 7vw, 110px); background: ${escapeHtml(ink)}; color: ${escapeHtml(canvas)}; }
-    .eyebrow { color: ${escapeHtml(gold)}; font-weight: 800; text-transform: uppercase; }
+    .eyebrow { color: ${escapeHtml(support)}; font-weight: 800; text-transform: uppercase; }
     h1 { font-size: clamp(54px, 9vw, 128px); line-height: .92; margin: 10px 0 20px; max-width: 960px; }
-    .lede { font-size: clamp(20px, 3vw, 34px); max-width: 760px; color: rgba(247,239,226,.82); }
+    .lede { font-size: clamp(20px, 3vw, 34px); max-width: 760px; color: color-mix(in srgb, ${escapeHtml(canvas)} 82%, ${escapeHtml(ink)} 18%); }
     .cta, button { width: fit-content; border: 0; border-radius: 999px; background: ${escapeHtml(accent)}; color: #fff; padding: 14px 22px; font-weight: 800; }
     .content-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; padding: 72px clamp(20px, 6vw, 96px); }
     .content-grid article, .final-cta { border-radius: 18px; background: #fff; padding: 28px; box-shadow: 0 18px 45px rgba(16,24,32,.08); }
     .story { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 32px; padding: 40px clamp(20px, 6vw, 96px) 80px; }
     .section-list { display: flex; flex-wrap: wrap; gap: 12px; }
     .section-list span { border: 1px solid rgba(16,24,32,.15); border-radius: 999px; padding: 10px 14px; }
-    .final-cta { margin: 0 clamp(20px, 6vw, 96px) 80px; background: ${escapeHtml(green)}; color: #fff; }
+    .final-cta { margin: 0 clamp(20px, 6vw, 96px) 80px; background: ${escapeHtml(emphasis)}; color: #fff; }
     .meta { padding: 16px clamp(20px, 5vw, 80px); color: #52606b; font-size: 14px; }
     @media (max-width: 760px) { .nav, .story { display: block; } .nav div { margin-top: 12px; } }
   </style>
@@ -1710,7 +2022,7 @@ function renderGeneratedUi(requestId) {
     <strong>${escapeHtml(brief.brandName)}</strong>
     <div>
       <a href="#content">Content</a>
-      <a href="#story">Story</a>
+      <a href="#details">Details</a>
       <a href="#action">Action</a>
     </div>
   </nav>
@@ -1723,18 +2035,18 @@ function renderGeneratedUi(requestId) {
   <section id="content" class="content-grid">
     ${sectionCards.map((section) => `<article><p>Generated Section</p><h2>${escapeHtml(section)}</h2><span>${escapeHtml(brief.mood)} content generated from the design brief.</span></article>`).join('\n    ')}
   </section>
-  <section id="story" class="story">
+  <section id="details" class="story">
     <div>
-      <p class="eyebrow">Generated From Prompt</p>
+      <p class="eyebrow">Generated From Request</p>
       <h2>${escapeHtml(parsedPayload.requestedWork)}</h2>
     </div>
     <div class="section-list">
-      ${brief.sections.map((section) => `<span>${escapeHtml(section)}</span>`).join('\n      ')}
+      ${sectionCards.map((section) => `<span>${escapeHtml(section)}</span>`).join('\n      ')}
     </div>
   </section>
   <section id="action" class="final-cta">
     <h2>${escapeHtml(brief.primaryCta)}</h2>
-    <p>This fallback preview was reconstructed from persisted design metadata.</p>
+    <p>This fallback preview is reconstructed from persisted design metadata when the direct generated preview is unavailable.</p>
     <button>${escapeHtml(brief.primaryCta)}</button>
   </section>
   <p class="meta">Generated by request ${escapeHtml(parsedPayload.requestId)} for ${escapeHtml(parsedPayload.requester)}.</p>
@@ -1751,17 +2063,6 @@ function getDeliveryRecordForRequest(requestId) {
         throw new Error(`No delivery request was found for request ${requestId}.`);
     }
     return deliveryRecord;
-}
-// Serves the generated React app through Vite so the preview uses App.jsx, App.css, and Vite transforms.
-async function renderGeneratedViteUi(viteServer, requestUrl, requestId) {
-    const deliveryRecord = getDeliveryRecordForRequest(requestId);
-    const indexPath = path.join(GENERATED_APP_DIR, 'index.html');
-    if (!fs.existsSync(indexPath)) {
-        throw new Error(`Generated Vite app index.html was not found for request ${deliveryRecord.id}.`);
-    }
-    const sourceHtml = fs.readFileSync(indexPath, 'utf-8');
-    const htmlWithMetadata = sourceHtml.replace(/<div\s+id=["']root["']\s*><\/div>/i, `<div id="root" data-request-id="${escapeHtml(deliveryRecord.id)}" data-request="${escapeHtml(deliveryRecord.request)}"></div>`);
-    return viteServer.transformIndexHtml(requestUrl, htmlWithMetadata);
 }
 // Generates the Railway-hosted approval page for a specific AI engineering delivery request.
 function renderApprovalUi(requestId, request) {
@@ -1887,6 +2188,30 @@ async function updateLinearTicketFromApproval(ticketId, decision, requestId) {
     return `Linear ticket moved to ${targetState.name}.`;
 }
 // Merges the linked GitHub PR when approved or closes it with a comment when blocked.
+async function waitForGitHubPullRequestMergeable(octokit, owner, repo, pullNumber) {
+    const maxChecks = Math.max(1, Number(optionalEnv('GITHUB_MERGEABLE_MAX_CHECKS') ?? '8'));
+    const delayMs = Math.max(250, Number(optionalEnv('GITHUB_MERGEABLE_DELAY_MS') ?? '1500'));
+    let lastState = 'unknown';
+    for (let attempt = 1; attempt <= maxChecks; attempt += 1) {
+        const { data: pullRequest } = await octokit.pulls.get({
+            owner,
+            repo,
+            pull_number: pullNumber
+        });
+        const mergeableState = typeof pullRequest.mergeable_state === 'string'
+            ? pullRequest.mergeable_state
+            : 'unknown';
+        lastState = mergeableState;
+        if (pullRequest.mergeable === true && !['dirty', 'blocked', 'unknown'].includes(mergeableState)) {
+            return mergeableState;
+        }
+        if (pullRequest.mergeable === false || ['dirty', 'blocked'].includes(mergeableState)) {
+            throw new Error(`GitHub PR #${pullNumber} is not mergeable yet. mergeable=${pullRequest.mergeable}, mergeable_state=${mergeableState}.`);
+        }
+        await delay(delayMs);
+    }
+    throw new Error(`GitHub PR #${pullNumber} mergeability stayed ${lastState} after ${maxChecks} check(s).`);
+}
 async function updateGitHubPrFromApproval(prOwner, prRepo, prNumberValue, decision, requestId) {
     if (!prOwner || !prRepo || !prNumberValue) {
         return 'GitHub PR was not linked to this approval URL.';
@@ -1900,6 +2225,7 @@ async function updateGitHubPrFromApproval(prOwner, prRepo, prNumberValue, decisi
         throw new Error(`Invalid GitHub PR number: ${prNumberValue}`);
     }
     if (decision === 'approved') {
+        const mergeableState = await waitForGitHubPullRequestMergeable(octokit, prOwner, prRepo, pull_number);
         await octokit.pulls.merge({
             owner: prOwner,
             repo: prRepo,
@@ -1907,7 +2233,7 @@ async function updateGitHubPrFromApproval(prOwner, prRepo, prNumberValue, decisi
             merge_method: 'squash',
             commit_title: `[Governance Approved] Merge AI delivery request ${requestId}`
         });
-        return `GitHub PR #${pull_number} merged.`;
+        return `GitHub PR #${pull_number} merged after mergeability state ${mergeableState}.`;
     }
     await octokit.pulls.update({
         owner: prOwner,
@@ -1928,7 +2254,6 @@ async function startServer() {
     const app = express();
     const port = Number(process.env.PORT ?? 3000);
     const shouldUseExactPort = Boolean(process.env.PORT);
-    const generatedAppViteServer = await createGeneratedAppViteServer();
     app.use(express.urlencoded({
         extended: false,
         verify: (request, _response, buffer) => {
@@ -1982,9 +2307,9 @@ async function startServer() {
         }
     });
     // Generated UI endpoint serves the live Railway page returned to Slack for each prompt.
-    app.get('/generated/:requestId', async (request, response) => {
+    app.get('/generated/:requestId', (request, response) => {
         try {
-            response.status(200).type('html').send(await renderGeneratedViteUi(generatedAppViteServer, request.originalUrl, request.params.requestId));
+            response.status(200).type('html').send(renderGeneratedUi(request.params.requestId));
         }
         catch (error) {
             sendJson(response, 404, {
@@ -2051,8 +2376,6 @@ async function startServer() {
             console.error('❌ Slack endpoint runtime failure:', error);
         }
     });
-    // Vite middleware is mounted after API routes so Slack/GitHub/Linear endpoints are never intercepted.
-    app.use(generatedAppViteServer.middlewares);
     // Binds the Express app to a port and auto-increments locally if the default port is already in use.
     const listen = (targetPort) => {
         const server = app.listen(targetPort, () => {

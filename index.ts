@@ -150,6 +150,7 @@ type GovernanceResults = MutationResults & {
   generatedUiUrl: string;
   governanceStatus: 'created' | 'skipped' | 'partial';
   governanceNotes: string[];
+  releaseReady: boolean;
 };
 
 type WorkflowResults = {
@@ -174,6 +175,7 @@ type WorkflowResults = {
   generatedUiUrl: string;
   governanceStatus: 'created' | 'skipped' | 'partial';
   governanceNotes: string[];
+  releaseReady: boolean;
   slackDispatched: boolean;
 };
 
@@ -313,7 +315,8 @@ const governanceResultsSchema = mutationResultsSchema.extend({
   approvalUiUrl: z.string(),
   generatedUiUrl: z.string(),
   governanceStatus: z.enum(['created', 'skipped', 'partial']),
-  governanceNotes: z.array(z.string())
+  governanceNotes: z.array(z.string()),
+  releaseReady: z.boolean()
 });
 
 const workflowResultsSchema = z.object({
@@ -338,6 +341,7 @@ const workflowResultsSchema = z.object({
   generatedUiUrl: z.string(),
   governanceStatus: z.enum(['created', 'skipped', 'partial']),
   governanceNotes: z.array(z.string()),
+  releaseReady: z.boolean(),
   slackDispatched: z.boolean()
 });
 
@@ -359,6 +363,13 @@ function optionalEnv(name: string): string | undefined {
 // Converts any thrown value into a readable string for logs, Slack notes, and API responses.
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+// Waits between GitHub mergeability checks so GitHub has time to calculate PR state after new commits.
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 // Creates a GitHub API client when GITHUB_TOKEN is configured, otherwise disables GitHub governance.
@@ -444,6 +455,42 @@ async function triggerRailwayDeployment(): Promise<string> {
   }
 
   return 'Railway deployment hook triggered.';
+}
+
+// Polls the public generated UI route so Slack only receives an app URL once Railway is serving it.
+async function waitForRailwayGeneratedUi(generatedUiUrl: string): Promise<string> {
+  const maxChecks = Math.max(1, Number(optionalEnv('RAILWAY_DEPLOY_MAX_CHECKS') ?? '20'));
+  const delayMs = Math.max(500, Number(optionalEnv('RAILWAY_DEPLOY_POLL_MS') ?? '3000'));
+  let lastStatus = 'not checked';
+
+  for (let attempt = 1; attempt <= maxChecks; attempt += 1) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), Math.min(delayMs, 8000));
+      const response = await fetch(generatedUiUrl, {
+        method: 'GET',
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      lastStatus = `${response.status} ${response.statusText}`.trim();
+
+      if (response.ok) {
+        const body = await response.text();
+        if (!body.includes('"status":"not_found"') && !body.includes('No delivery request was found')) {
+          return `Railway generated UI is live after ${attempt} check(s).`;
+        }
+        lastStatus = 'generated route returned not_found';
+      }
+    } catch (error: unknown) {
+      lastStatus = getErrorMessage(error);
+    }
+
+    if (attempt < maxChecks) {
+      await delay(delayMs);
+    }
+  }
+
+  throw new Error(`Railway generated UI was not ready after ${maxChecks} check(s). Last status: ${lastStatus}.`);
 }
 
 // Creates a Vite middleware server for the generated React app so previews use App.jsx and App.css.
@@ -1442,8 +1489,11 @@ async function dispatchSlackInteractiveCard(results: GovernanceResults): Promise
   const webhookUrl = requiredEnv('SLACK_WEBHOOK_URL');
   const generatedFileList = results.reactGeneration.generatedFiles.map((file) => `\`${file.path}\``).join(', ');
   const figmaPluginSessionUrl = `${getPublicBaseUrl()}/api/figma/session/${encodeURIComponent(results.requestId)}`;
+  const releaseStatusLine = results.releaseReady
+    ? `*Generated UI:* <${results.generatedUiUrl}|Open generated page>`
+    : '*Generated UI:* Pending merge/deployment. Review PR status below.';
   const governanceLines = [
-    `*Generated UI:* <${results.generatedUiUrl}|Open generated page>`,
+    releaseStatusLine,
     results.prUrl ? `*GitHub Evidence PR:* <${results.prUrl}|Review PR>` : '*GitHub Evidence PR:* Not created',
     results.ticketUrl ? `*Linear Governance Ticket:* <${results.ticketUrl}|View ticket>` : '*Linear Governance Ticket:* Not created',
     `*Governance Status:* ${results.governanceStatus}`,
@@ -1486,8 +1536,8 @@ async function dispatchSlackInteractiveCard(results: GovernanceResults): Promise
           {
             type: 'button',
             style: 'primary',
-            text: { type: 'plain_text', text: 'Open Generated UI' },
-            url: results.generatedUiUrl
+            text: { type: 'plain_text', text: results.releaseReady ? 'Open Generated UI' : 'Open Approval + Governance' },
+            url: results.releaseReady ? results.generatedUiUrl : results.approvalUiUrl
           }
         ]
       }
@@ -1908,6 +1958,7 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
   let workingResults: MutationResults = results;
   let finalReview: UiQualityReview;
   let mergedToBase = false;
+  let generatedUiUrl = buildGeneratedUiUrl(workingResults);
 
   console.log('Governance env check:', {
     hasGitHubToken: Boolean(optionalEnv('GITHUB_TOKEN')),
@@ -2005,6 +2056,7 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
         notes.push(mergeResult);
         mergedToBase = true;
         notes.push(await triggerRailwayDeployment());
+        notes.push(await waitForRailwayGeneratedUi(generatedUiUrl));
       } catch (error: unknown) {
         notes.push(`GitHub merge failed after passing review: ${getErrorMessage(error)}`);
       }
@@ -2030,7 +2082,7 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
       : 'partial';
   const githubPr = prNumber && prOwner && prRepo ? { prNumber, prOwner, prRepo } : null;
   const approvalUiUrl = buildApprovalUiUrl(workingResults, ticketId, githubPr);
-  const generatedUiUrl = buildGeneratedUiUrl(workingResults);
+  generatedUiUrl = buildGeneratedUiUrl(workingResults);
 
   return {
     ...workingResults,
@@ -2045,7 +2097,8 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
     approvalUiUrl,
     generatedUiUrl,
     governanceStatus,
-    governanceNotes: notes
+    governanceNotes: notes,
+    releaseReady: mergedToBase
   };
 }
 
@@ -2174,6 +2227,7 @@ const slackDispatchStep = createStep({
       generatedUiUrl: inputData.generatedUiUrl,
       governanceStatus: inputData.governanceStatus,
       governanceNotes: inputData.governanceNotes,
+      releaseReady: inputData.releaseReady,
       slackDispatched: true
     } as const;
   }
@@ -2603,6 +2657,41 @@ async function updateLinearTicketFromApproval(
 }
 
 // Merges the linked GitHub PR when approved or closes it with a comment when blocked.
+async function waitForGitHubPullRequestMergeable(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  pullNumber: number
+): Promise<string> {
+  const maxChecks = Math.max(1, Number(optionalEnv('GITHUB_MERGEABLE_MAX_CHECKS') ?? '8'));
+  const delayMs = Math.max(250, Number(optionalEnv('GITHUB_MERGEABLE_DELAY_MS') ?? '1500'));
+  let lastState = 'unknown';
+
+  for (let attempt = 1; attempt <= maxChecks; attempt += 1) {
+    const { data: pullRequest } = await octokit.pulls.get({
+      owner,
+      repo,
+      pull_number: pullNumber
+    });
+    const mergeableState = typeof pullRequest.mergeable_state === 'string'
+      ? pullRequest.mergeable_state
+      : 'unknown';
+    lastState = mergeableState;
+
+    if (pullRequest.mergeable === true && !['dirty', 'blocked', 'unknown'].includes(mergeableState)) {
+      return mergeableState;
+    }
+
+    if (pullRequest.mergeable === false || ['dirty', 'blocked'].includes(mergeableState)) {
+      throw new Error(`GitHub PR #${pullNumber} is not mergeable yet. mergeable=${pullRequest.mergeable}, mergeable_state=${mergeableState}.`);
+    }
+
+    await delay(delayMs);
+  }
+
+  throw new Error(`GitHub PR #${pullNumber} mergeability stayed ${lastState} after ${maxChecks} check(s).`);
+}
+
 async function updateGitHubPrFromApproval(
   prOwner: string | undefined,
   prRepo: string | undefined,
@@ -2625,6 +2714,7 @@ async function updateGitHubPrFromApproval(
   }
 
   if (decision === 'approved') {
+    const mergeableState = await waitForGitHubPullRequestMergeable(octokit, prOwner, prRepo, pull_number);
     await octokit.pulls.merge({
       owner: prOwner,
       repo: prRepo,
@@ -2633,7 +2723,7 @@ async function updateGitHubPrFromApproval(
       commit_title: `[Governance Approved] Merge AI delivery request ${requestId}`
     });
 
-    return `GitHub PR #${pull_number} merged.`;
+    return `GitHub PR #${pull_number} merged after mergeability state ${mergeableState}.`;
   }
 
   await octokit.pulls.update({
