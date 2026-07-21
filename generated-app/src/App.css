@@ -1,65 +1,14 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-body {
-    font-family: 'Roboto', sans-serif;
-    background-color: #F7F9FC;
-}
-.container {
-    max-width: 600px;
-    margin: 50px auto;
-    padding: 20px;
-    background: #FFFFFF;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-}
-h1 {
-    color: #4A90E2;
-    margin-bottom: 20px;
-    text-align: center;
-}
-label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-}
-input[type='email'], textarea, select {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 20px;
-    border: 1px solid #CCCCCC;
-    border-radius: 4px;
-    transition: border-color 0.3s;
-}
-input[type='email']:focus, textarea:focus, select:focus {
-    border-color: #4A90E2;
-    outline: none;
-}
-button {
-    width: 100%;
-    padding: 10px;
-    background-color: #4A90E2;
-    color: #FFFFFF;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-button:hover {
-    background-color: #357ABD;
-}
-.rating {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-.rating input {
-    margin-right: 10px;
-}
-@media (max-width: 600px) {
-    .container {
-        padding: 15px;
-    }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Roboto', sans-serif; background-color: #E8F5E9; color: #333; line-height: 1.6; }
+h1, h2, h3 { margin-bottom: 1rem; }
+.container { max-width: 1200px; margin: auto; padding: 1rem; }
+.hero { background-color: #4CAF50; color: white; text-align: center; padding: 50px 20px; border-radius: 10px; }
+.section { margin: 2rem 0; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.cta { background-color: #FFAB91; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
+.cta:hover { background-color: #f47c7c; }
+.form-group { margin: 1rem 0; }
+input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+input:focus, textarea:focus { border-color: #4CAF50; outline: none; }
+@media (max-width: 768px) {
+    .hero { padding: 30px 10px; }
 }
