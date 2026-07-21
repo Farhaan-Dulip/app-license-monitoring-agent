@@ -1,74 +1,80 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
 body {
+    margin: 0;
     font-family: 'Montserrat', sans-serif;
-    background-color: #FFF6F2;
-    color: #581845;
-    line-height: 1.6;
+    background-color: #fff;
+    color: #333;
 }
+
 header {
     background-color: #FF5733;
     padding: 20px;
     text-align: center;
-    color: white;
 }
-.hero {
-    padding: 50px 20px;
-    text-align: center;
-}
-.hero h1 {
-    font-size: 2.5em;
+
+h1 {
+    color: #FFC300;
+    font-size: 2.5rem;
     margin-bottom: 10px;
 }
-.hero p {
-    font-size: 1.2em;
-    margin-bottom: 20px;
+
+h2 {
+    color: #C70039;
+    font-size: 1.8rem;
 }
-.cta {
-    background-color: #FFC300;
-    color: #581845;
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: auto;
+}
+
+.hero {
+    padding: 50px 0;
+    text-align: center;
+}
+
+.about,
+.menu,
+.reservation,
+.testimonials,
+.contact {
+    padding: 40px 0;
+    text-align: center;
+}
+
+.btn {
+    background-color: #900C3F;
+    color: white;
     padding: 10px 20px;
     border: none;
     border-radius: 5px;
-    font-size: 1em;
     cursor: pointer;
-    transition: background-color 0.3s ease;
 }
-.cta:hover {
-    background-color: #C70039;
-    color: white;
-}
-section {
-    padding: 20px;
-    margin: 20px 0;
-    background: #FFC300;
-    border-radius: 10px;
-}
-.menu { 
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
-}
-.menu-item {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-footer {
+
+.btn:hover {
     background-color: #581845;
-    color: white;
-    text-align: center;
-    padding: 20px;
 }
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-control {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    width: 100%;
+}
+
 @media (max-width: 768px) {
-    .hero h1 {
-        font-size: 2em;
+    h1 {
+        font-size: 2rem;
     }
-    .hero p {
-        font-size: 1em;
+    .about,
+    .menu,
+    .reservation,
+    .testimonials,
+    .contact {
+        padding: 20px 0;
     }
 }
