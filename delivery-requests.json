@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T13:13:21.229Z",
+  "lastUpdated": "2026-07-21T14:48:38.436Z",
   "requests": [
     {
       "id": "req_001",
@@ -254,6 +254,75 @@
         "generated-app/src/App.jsx",
         "generated-app/src/App.css",
         "docs/design-to-react-req_009.md"
+      ]
+    },
+    {
+      "id": "req_010",
+      "request": "can you build a feedback form with email input, ratings and text area for comments?",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/delicious-diner-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/delicious-diner-plugin-code.js",
+      "designBrief": {
+        "pageType": "Landing Page",
+        "brandName": "Delicious Diner",
+        "audience": "Food enthusiasts looking for a casual dining experience",
+        "mood": "Welcoming and Friendly",
+        "colorPalette": [
+          "#FF5733",
+          "#FFC300",
+          "#DAF7A6",
+          "#581845",
+          "#900C3F"
+        ],
+        "typography": "Arial, sans-serif",
+        "sections": [
+          "Hero Section with Restaurant Image and Tagline",
+          "About Us Section with Restaurant Description",
+          "Feedback Form Section with Email Input, Ratings, and Comments",
+          "Menu Preview Section with Popular Dishes",
+          "Location and Contact Information Section"
+        ],
+        "primaryCta": "Make a Reservation",
+        "acceptanceCriteria": [
+          "Feedback form works",
+          "all inputs validate correctly",
+          "ratings are captured",
+          "and comments are saved."
+        ],
+        "implementationPlan": [
+          "Create design in Figma",
+          "validate with stakeholders",
+          "convert design to React components",
+          "test and deploy."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "Feedback form component designed for Delicious Diner. It captures user email input, ratings through radio buttons, and comments in a text area. The UI is responsive and visually appealing, matching the welcoming and friendly mood of the brand.",
+      "acceptanceCriteria": [
+        "Feedback form works",
+        "all inputs validate correctly",
+        "ratings are captured",
+        "and comments are saved."
+      ],
+      "implementationPlan": [
+        "Create design in Figma",
+        "validate with stakeholders",
+        "convert design to React components",
+        "test and deploy."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Delicious Diner Feedback Form</title>\n    <style>\n        body {\n            font-family: Arial, sans-serif;\n            background-color: #DAF7A6;\n            color: #581845;\n            padding: 20px;\n        }\n        .container {\n            max-width: 600px;\n            margin: 0 auto;\n            padding: 20px;\n            border: 1px solid #FF5733;\n            border-radius: 10px;\n            background-color: white;\n            box-shadow: 0 4px 8px rgba(0,0,0,0.1);\n        }\n        h1 {\n            text-align: center;\n            color: #900C3F;\n        }\n        form {\n            display: flex;\n            flex-direction: column;\n        }\n        label {\n            margin: 10px 0 5px;\n        }\n        input[type='email'], textarea {\n            padding: 10px;\n            font-size: 16px;\n            border: 1px solid #FFC300;\n            border-radius: 5px;\n        }\n        .ratings {\n            display: flex;\n            justify-content: space-between;\n            margin: 10px 0;\n        }\n        button {\n            padding: 10px;\n            background-color: #FF5733;\n            color: white;\n            border: none;\n            border-radius: 5px;\n            cursor: pointer;\n        }\n        button:hover {\n            background-color: #900C3F;\n        }\n        @media (max-width: 600px) {\n            .container {\n                padding: 15px;\n            }\n            h1 {\n                font-size: 24px;\n            }\n        }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <h1>Feedback Form</h1>\n        <form>\n            <label for=\"email\">Email:</label>\n            <input type=\"email\" id=\"email\" required />\n            <div class=\"ratings\">\n                <label>Rating:</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"1\" /> 1</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"2\" /> 2</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"3\" /> 3</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"4\" /> 4</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"5\" /> 5</label>\n            </div>\n            <label for=\"comments\">Comments:</label>\n            <textarea id=\"comments\" rows=\"4\" required></textarea>\n            <button type=\"submit\">Submit Feedback</button>\n        </form>\n    </div>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_010.md"
       ]
     }
   ]
