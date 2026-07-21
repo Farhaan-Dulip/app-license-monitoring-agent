@@ -1,34 +1,44 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './App.css';
 
 const FeedbackForm = () => {
-    const handleStarClick = (event) => {
-        const stars = document.querySelectorAll('.star');
-        stars.forEach(star => star.classList.remove('selected'));
-        for (let i = 0; i < event.target.dataset.value; i++) {
-            stars[i].classList.add('selected');
+    const [email, setEmail] = useState('');
+    const [rating, setRating] = useState(0);
+    const [comments, setComments] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = () => {
+        setError('');
+        if (!email) {
+            setError('Email is required!');
+            return;
         }
+        alert(`Feedback submitted! Email: ${email}, Rating: ${rating}, Comments: ${comments}`);
     };
 
     return (
         <div className="container">
-            <h1>Feedback Form</h1>
-            <h2>We Value Your Feedback</h2>
-            <form>
+            <h1>Submit Your Feedback</h1>
+            <div className="form-group">
                 <label htmlFor="email">Email:</label>
-                <input type="email" id="email" required placeholder="your.email@example.com" />
-                <label htmlFor="rating">Rating:</label>
-                <div className="rating">
-                    <span className="star" data-value="1" onClick={handleStarClick}>★</span>
-                    <span className="star" data-value="2" onClick={handleStarClick}>★</span>
-                    <span className="star" data-value="3" onClick={handleStarClick}>★</span>
-                    <span className="star" data-value="4" onClick={handleStarClick}>★</span>
-                    <span className="star" data-value="5" onClick={handleStarClick}>★</span>
+                <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!error} aria-required="true" placeholder="Enter your email"/>
+                {error && <div className="error" aria-live="assertive">{error}</div>}
+            </div>
+            <div className="form-group">
+                <label>Ratings:</label>
+                <div className="ratings">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                        <span key={value} className={`star ${rating >= value ? 'selected' : ''}`} onClick={() => setRating(value)} data-value={value}>
+                            ★
+                        </span>
+                    ))}
                 </div>
+            </div>
+            <div className="form-group">
                 <label htmlFor="comments">Comments:</label>
-                <textarea id="comments" rows="4" placeholder="Share your thoughts..." required></textarea>
-                <button type="submit">Submit Feedback</button>
-            </form>
+                <textarea id="comments" value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Share your experiences..." rows="4"></textarea>
+            </div>
+            <button className="submit-btn" onClick={handleSubmit}>Submit Feedback</button>
         </div>
     );
 };
