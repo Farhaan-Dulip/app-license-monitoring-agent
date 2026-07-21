@@ -1,0 +1,125 @@
+{
+  "brief": {
+    "pageType": "Landing Page",
+    "brandName": "EcoFuture",
+    "audience": "Environmentally conscious individuals and organizations",
+    "mood": "Modern and Inviting",
+    "colorPalette": [
+      "#4CAF50",
+      "#A5D6A7",
+      "#E8F5E9",
+      "#F1F8E9",
+      "#FFAB91"
+    ],
+    "typography": "Roboto, sans-serif",
+    "sections": [
+      "Hero Section with a striking image and tagline",
+      "About Us: Brief information about EcoFuture's mission and vision",
+      "Our Initiatives: Details on current environmental projects",
+      "Get Involved: Call to action for volunteering or donations",
+      "Testimonials: Quotes from supporters and partners",
+      "Blog: Latest articles on environmental topics",
+      "Contact Us: Form for inquiries and feedback"
+    ],
+    "primaryCta": "Join the Movement",
+    "acceptanceCriteria": [
+      "Design is modern",
+      "responsive",
+      "and matches the proposed layout",
+      "elements are logically arranged and accessible."
+    ],
+    "implementationPlan": [
+      "1. Design the landing page in Figma",
+      "2. Review with stakeholders",
+      "3. Convert approved design to React components",
+      "4. Test across browsers and devices",
+      "5. Launch the page."
+    ],
+    "riskLevel": "medium"
+  },
+  "designSystem": {
+    "palette": [
+      "#4CAF50",
+      "#A5D6A7",
+      "#E8F5E9",
+      "#F1F8E9",
+      "#FFAB91"
+    ],
+    "typography": "Roboto, sans-serif",
+    "spacingScale": [
+      "8px",
+      "12px",
+      "16px",
+      "24px",
+      "32px",
+      "48px",
+      "72px",
+      "96px"
+    ],
+    "cornerRadius": [
+      "8px",
+      "12px",
+      "20px",
+      "28px"
+    ],
+    "elevation": [
+      "subtle card shadow",
+      "hero media shadow",
+      "sticky nav blur"
+    ]
+  },
+  "layoutBlueprint": {
+    "desktop": "1440px responsive experience with clear navigation, high-impact hero, intentional section hierarchy, supporting content blocks, conversion-focused panels, and a polished footer.",
+    "tablet": "Selective two-column layouts that collapse gracefully while preserving hierarchy and spacing rhythm.",
+    "mobile": "Single-column flow with readable typography, full-width CTAs, stacked cards, and no content overlap.",
+    "qualityBar": "The generated React implementation should feel production-ready and domain-appropriate, not a wireframe or plain form."
+  },
+  "interactionNotes": [
+    "Primary CTA needs hover, active, and focus-visible states.",
+    "Inputs/selects/buttons must be custom styled if the design includes a form.",
+    "Cards should have intentional spacing, hierarchy, and responsive dimensions.",
+    "Avoid browser-default controls and sparse one-panel layouts."
+  ],
+  "nodes": [
+    {
+      "name": "Landing Page Frame",
+      "type": "frame",
+      "description": "Landing Page desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections."
+    },
+    {
+      "name": "Hero Section with a striking image and tagline",
+      "type": "section",
+      "description": "High-fidelity section for Hero Section with a striking image and tagline. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "About Us: Brief information about EcoFuture's mission and vision",
+      "type": "section",
+      "description": "High-fidelity section for About Us: Brief information about EcoFuture's mission and vision. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Our Initiatives: Details on current environmental projects",
+      "type": "section",
+      "description": "High-fidelity section for Our Initiatives: Details on current environmental projects. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Get Involved: Call to action for volunteering or donations",
+      "type": "section",
+      "description": "High-fidelity section for Get Involved: Call to action for volunteering or donations. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Testimonials: Quotes from supporters and partners",
+      "type": "section",
+      "description": "High-fidelity section for Testimonials: Quotes from supporters and partners. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Blog: Latest articles on environmental topics",
+      "type": "section",
+      "description": "High-fidelity section for Blog: Latest articles on environmental topics. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Contact Us: Form for inquiries and feedback",
+      "type": "section",
+      "description": "High-fidelity section for Contact Us: Form for inquiries and feedback. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    }
+  ]
+}
