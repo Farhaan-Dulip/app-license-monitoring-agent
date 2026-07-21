@@ -1,0 +1,114 @@
+{
+  "brief": {
+    "pageType": "landing",
+    "brandName": "Savory Delights",
+    "audience": "food enthusiasts, families, couples, event planners",
+    "mood": "inviting, elegant, warm",
+    "colorPalette": [
+      "#FFCC00",
+      "#555555",
+      "#FFFFFF",
+      "#C38D00",
+      "#A84000"
+    ],
+    "typography": "Roboto, sans-serif",
+    "sections": [
+      "Hero Banner with Reservation CTA",
+      "Menu Highlights",
+      "Ambience & Decor",
+      "Chef's Story",
+      "Hours of Operation & Location",
+      "Private Dining & Events"
+    ],
+    "primaryCta": "Make a Reservation",
+    "acceptanceCriteria": [
+      "Design meets brand guidelines",
+      "responsive across devices",
+      "includes all key sections described."
+    ],
+    "implementationPlan": [
+      "Figma design -> Review and finalize -> Convert to React components -> Integrate with backend for reservations"
+    ],
+    "riskLevel": "medium"
+  },
+  "designSystem": {
+    "palette": [
+      "#FFCC00",
+      "#555555",
+      "#FFFFFF",
+      "#C38D00",
+      "#A84000"
+    ],
+    "typography": "Roboto, sans-serif",
+    "spacingScale": [
+      "8px",
+      "12px",
+      "16px",
+      "24px",
+      "32px",
+      "48px",
+      "72px",
+      "96px"
+    ],
+    "cornerRadius": [
+      "8px",
+      "12px",
+      "20px",
+      "28px"
+    ],
+    "elevation": [
+      "subtle card shadow",
+      "hero media shadow",
+      "sticky nav blur"
+    ]
+  },
+  "layoutBlueprint": {
+    "desktop": "1440px marketing page with sticky nav, full first-viewport hero, asymmetric content/media composition, menu card grid, story band, reservation or conversion panel, and footer.",
+    "tablet": "Two-column sections collapse selectively while maintaining strong hierarchy and generous spacing.",
+    "mobile": "Single-column flow with compact navigation, readable hero headline, full-width CTAs, stacked cards, and no text overlap.",
+    "qualityBar": "The generated React implementation should feel like a finished product landing page, not a wireframe or plain form."
+  },
+  "interactionNotes": [
+    "Primary CTA needs hover, active, and focus-visible states.",
+    "Inputs/selects/buttons must be custom styled if the design includes a form.",
+    "Cards should have intentional spacing, hierarchy, and responsive dimensions.",
+    "Avoid browser-default controls and sparse one-panel layouts."
+  ],
+  "nodes": [
+    {
+      "name": "Landing Page Frame",
+      "type": "frame",
+      "description": "landing desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections."
+    },
+    {
+      "name": "Hero Banner with Reservation CTA",
+      "type": "section",
+      "description": "High-fidelity section for Hero Banner with Reservation CTA. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Menu Highlights",
+      "type": "section",
+      "description": "High-fidelity section for Menu Highlights. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Ambience & Decor",
+      "type": "section",
+      "description": "High-fidelity section for Ambience & Decor. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Chef's Story",
+      "type": "section",
+      "description": "High-fidelity section for Chef's Story. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Hours of Operation & Location",
+      "type": "section",
+      "description": "High-fidelity section for Hours of Operation & Location. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Private Dining & Events",
+      "type": "section",
+      "description": "High-fidelity section for Private Dining & Events. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    }
+  ]
+}

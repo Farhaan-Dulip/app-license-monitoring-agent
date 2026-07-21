@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T13:13:21.229Z",
+  "lastUpdated": "2026-07-21T15:21:26.470Z",
   "requests": [
     {
       "id": "req_001",
@@ -254,6 +254,78 @@
         "generated-app/src/App.jsx",
         "generated-app/src/App.css",
         "docs/design-to-react-req_009.md"
+      ]
+    },
+    {
+      "id": "req_010",
+      "request": "build ui screen for landing page for resturant",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/savory-delights-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/savory-delights-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing",
+        "brandName": "Savory Delights",
+        "audience": "food enthusiasts, families, couples, event planners",
+        "mood": "inviting, elegant, warm",
+        "colorPalette": [
+          "#FFCC00",
+          "#555555",
+          "#FFFFFF",
+          "#C38D00",
+          "#A84000"
+        ],
+        "typography": "Roboto, sans-serif",
+        "sections": [
+          "Hero Banner with Reservation CTA",
+          "Menu Highlights",
+          "Ambience & Decor",
+          "Chef's Story",
+          "Hours of Operation & Location",
+          "Private Dining & Events"
+        ],
+        "primaryCta": "Make a Reservation",
+        "acceptanceCriteria": [
+          "Design meets brand guidelines",
+          "responsive across devices",
+          "includes all key sections described."
+        ],
+        "implementationPlan": [
+          "Figma design -> Review and finalize -> Convert to React components -> Integrate with backend for reservations"
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "A polished restaurant landing page for 'Savory Delights' featuring a captivating hero section, menu highlights, ambience & decor storytelling, and essential operational details.",
+      "acceptanceCriteria": [
+        "Design meets brand guidelines",
+        "responsive across devices",
+        "includes all key sections described."
+      ],
+      "implementationPlan": [
+        "Figma design -> Review and finalize -> Convert to React components -> Integrate with backend for reservations"
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Savory Delights</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            font-family: 'Roboto', sans-serif;\n            background-color: #FFFFFF;\n            color: #555555;\n            line-height: 1.6;\n        }\n        header {\n            background: url('data:image/jpeg;base64,...') no-repeat center center/cover;\n            padding: 50px 0;\n            text-align: center;\n            color: #FFFFFF;\n        }\n        nav {\n            background-color: rgba(0, 0, 0, 0.7);\n            padding: 10px;\n            position: fixed;\n            width: 100%;\n            top: 0;\n            z-index: 100;\n        }\n        nav ul {\n            list-style: none;\n            display: flex;\n            justify-content: center;\n        }\n        nav ul li {\n            margin: 0 20px;\n        }\n        nav ul li a {\n            color: #FFCC00;\n            text-decoration: none;\n            transition: color 0.3s;\n        }\n        nav ul li a:hover {\n            color: #C38D00;\n        }\n        .hero {\n            padding: 120px 20px;\n            background: rgba(0, 0, 0, 0.5);\n            display: flex;\n            flex-direction: column;\n            align-items: center;\n        }\n        .hero h1 {\n            font-size: 3em;\n            margin: 0 0 20px;\n        }\n        .cta {\n            margin-top: 20px;\n            background-color: #FFCC00;\n            color: #555555;\n            padding: 10px 20px;\n            border: none;\n            font-size: 1.2em;\n            cursor: pointer;\n            transition: background-color 0.3s;\n        }\n        .cta:hover {\n            background-color: #C38D00;\n        }\n        .section {\n            padding: 50px 20px;\n            text-align: center;\n        }\n        .section h2 {\n            font-size: 2.5em;\n            margin-bottom: 20px;\n        }\n        .menu, .ambience {\n            display: flex;\n            justify-content: space-around;\n            flex-wrap: wrap;\n        }\n        .menu-item, .ambience-item {\n            flex: 0 1 30%;\n            margin: 20px;\n            padding: 20px;\n            border: 1px solid #C38D00;\n            transition: transform 0.3s;\n        }\n        .menu-item:hover, .ambience-item:hover {\n            transform: scale(1.05);\n        }\n        footer {\n            background-color: #555555;\n            color: #FFFFFF;\n            text-align: center;\n            padding: 20px;\n        }\n        @media(max-width: 768px) {\n            .menu-item, .ambience-item {\n                flex: 0 1 100%;\n            }\n            .hero h1 {\n                font-size: 2.5em;\n            }\n        }\n    </style>\n</head>\n<body>\n    <header>\n        <nav>\n            <ul>\n                <li><a href=\"#menu\">Menu</a></li>\n                <li><a href=\"#ambience\">Ambience</a></li>\n                <li><a href=\"#story\">Chef's Story</a></li>\n                <li><a href=\"#hours\">Location & Hours</a></li>\n                <li><a href=\"#events\">Events</a></li>\n            </ul>\n        </nav>\n        <div class=\"hero\">\n            <h1>Welcome to Savory Delights</h1>\n            <button class=\"cta\">Make a Reservation</button>\n        </div>\n    </header>\n    <section class=\"section\" id=\"menu\">\n        <h2>Menu Highlights</h2>\n        <div class=\"menu\">\n            <div class=\"menu-item\">\n                <h3>Pasta Primavera</h3>\n                <p>Fresh vegetables with homemade noodles.</p>\n            </div>\n            <div class=\"menu-item\">\n                <h3>Grilled Salmon</h3>\n                <p>Served with lemon butter sauce.</p>\n            </div>\n            <div class=\"menu-item\">\n                <h3>Chocolate Lava Cake</h3>\n                <p>Rich chocolate with a gooey center.</p>\n            </div>\n        </div>\n    </section>\n    <section class=\"section\" id=\"ambience\">\n        <h2>Ambience & Decor</h2>\n        <div class=\"ambience\">\n            <div class=\"ambience-item\">\n                <h3>Elegant Dining</h3>\n                <p>Experience fine dining in a warm atmosphere.</p>\n            </div>\n            <div class=\"ambience-item\">\n                <h3>Cozy Seating</h3>\n                <p>Perfect for family gatherings or intimate dates.</p>\n            </div>\n        </div>\n    </section>\n    <section class=\"section\" id=\"story\">\n        <h2>Chef's Story</h2>\n        <p>Our chef believes in crafting enticing dishes from the heart.</p>\n    </section>\n    <section class=\"section\" id=\"hours\">\n        <h2>Hours of Operation & Location</h2>\n        <p>Open Daily: 10 AM - 10 PM</p>\n        <p>123 Flavor Ave, Taste City, TC 45678</p>\n    </section>\n    <section class=\"section\" id=\"events\">\n        <h2>Private Dining & Events</h2>\n        <p>Book our place for special occasions.</p>\n    </section>\n    <footer>\n        <p>&copy; 2023 Savory Delights. All rights reserved.</p>\n    </footer>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_010.md"
+      ],
+      "uiQualityScore": 78,
+      "uiQualityFindings": [
+        "The hero banner does not clearly highlight the reservation CTA, which should be more prominent and engaging.",
+        "While the navigation bar exists, its overall design lacks visual clarity and does not leverage the color palette effectively to enhance the charm of the brand.",
+        "Menu content is presented in a box layout but could benefit from more visual storytelling or imagery to create a rich experience that captivates the audience.",
+        "Sections lack adequate spacing and visual hierarchy between headings and body text; font sizes should vary more significantly to guide the reader's eye.",
+        "While the sections are well defined, the layout feels too basic; incorporating background images or textures related to the restaurant's ambience could enhance user experience.",
+        "There is minimal differentiation in the hover state for menu items; this could be more visually appealing by introducing subtle effects.",
+        "Footer information could include additional brand elements like social media links or contact information to enhance engagement."
       ]
     }
   ]
