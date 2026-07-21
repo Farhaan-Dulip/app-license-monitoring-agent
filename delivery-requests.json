@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T19:47:57.813Z",
+  "lastUpdated": "2026-07-21T20:04:26.773Z",
   "requests": [
     {
       "id": "req_001",
@@ -329,6 +329,65 @@
         "Star ratings are implemented and selectable.",
         "The comment section is present and operational.",
         "All business intents as outlined in the prompt and acceptance criteria have been successfully met."
+      ]
+    },
+    {
+      "id": "req_011",
+      "request": "can you build a modern feedback form which includes email input, ratings and comment section?",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/modernfeedback-inc-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/modernfeedback-inc-plugin-code.js",
+      "designBrief": {
+        "pageType": "Feedback Form",
+        "brandName": "ModernFeedback Inc.",
+        "audience": "Customers and Users of the Product",
+        "mood": "Professional and Friendly",
+        "colorPalette": [
+          "#4A90E2",
+          "#50E3C2",
+          "#F5A623",
+          "#D0021B",
+          "#7ED321"
+        ],
+        "typography": "Roboto, sans-serif",
+        "sections": [
+          "Email Input",
+          "Rating Selection",
+          "Comment Section"
+        ],
+        "primaryCta": "Submit Feedback",
+        "acceptanceCriteria": [
+          "Form is visually appealing",
+          "functional",
+          "and captures user input accurately."
+        ],
+        "implementationPlan": [
+          "1. Create Figma design for feedback form. 2. Convert design into React component with necessary state management."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "A modern feedback form designed for ModernFeedback Inc. including sections for email input, ratings, and comments. This UI is professional, user-friendly, and fully responsive, ensuring a good experience across devices.",
+      "acceptanceCriteria": [
+        "Form is visually appealing",
+        "functional",
+        "and captures user input accurately."
+      ],
+      "implementationPlan": [
+        "1. Create Figma design for feedback form. 2. Convert design into React component with necessary state management."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Feedback Form</title>\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Roboto', sans-serif; background-color: #F7F9FC; }\n        .container { max-width: 600px; margin: 50px auto; padding: 20px; background: #FFFFFF; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }\n        h1 { color: #4A90E2; margin-bottom: 20px; text-align: center; }\n        label { display: block; margin-bottom: 8px; font-weight: bold; }\n        input[type='email'], textarea, select { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #CCCCCC; border-radius: 4px; transition: border-color 0.3s; }\n        input[type='email']:focus, textarea:focus, select:focus { border-color: #4A90E2; outline: none; }\n        button { width: 100%; padding: 10px; background-color: #4A90E2; color: #FFFFFF; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; }\n        button:hover { background-color: #357ABD; }\n        .rating { display: flex; justify-content: space-between; margin-bottom: 20px; }\n        .rating input { margin-right: 10px; }\n        @media (max-width: 600px) { .container { padding: 15px; } }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <h1>We Value Your Feedback!</h1>\n        <form>\n            <label for=\"email\">Email:</label>\n            <input type=\"email\" id=\"email\" name=\"email\" required placeholder=\"Enter your email\">\n            <label>Rate Us:</label>\n            <div class=\"rating\">\n                <label><input type=\"radio\" name=\"rating\" value=\"1\"> 1</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"2\"> 2</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"3\"> 3</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"4\"> 4</label>\n                <label><input type=\"radio\" name=\"rating\" value=\"5\"> 5</label>\n            </div>\n            <label for=\"comments\">Comments:</label>\n            <textarea id=\"comments\" name=\"comments\" rows=\"4\" placeholder=\"Share your thoughts...\"></textarea>\n            <button type=\"submit\">Submit Feedback</button>\n        </form>\n    </div>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_011.md"
       ]
     }
   ]
