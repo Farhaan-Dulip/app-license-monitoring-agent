@@ -1,0 +1,75 @@
+{
+  "brief": {
+    "pageType": "restaurant landing page",
+    "brandName": "Ember & Sage",
+    "audience": "local diners looking for a polished dinner reservation experience",
+    "mood": "warm, refined, appetizing, modern",
+    "colorPalette": [
+      "#101820",
+      "#f7efe2",
+      "#c94f3d",
+      "#d7a86e",
+      "#355e4b"
+    ],
+    "typography": "Elegant serif display headings with clean sans-serif body text",
+    "sections": [
+      "Navigation",
+      "Hero reservation CTA",
+      "Signature dishes",
+      "Chef story",
+      "Private dining CTA",
+      "Footer"
+    ],
+    "primaryCta": "Reserve a Table",
+    "acceptanceCriteria": [
+      "Responsive restaurant landing page renders on mobile and desktop",
+      "Hero section includes brand name, cuisine positioning, and reservation CTA",
+      "Menu preview shows at least three featured dishes",
+      "Final page includes GitHub, Linear, Railway, and Figma traceability"
+    ],
+    "implementationPlan": [
+      "Create a Figma-ready frame specification for the landing page",
+      "Generate React component structure from the design spec",
+      "Write CSS for responsive layout, palette, spacing, and cards",
+      "Commit generated artifacts and delivery metadata through GitHub governance"
+    ],
+    "riskLevel": "low"
+  },
+  "nodes": [
+    {
+      "name": "Restaurant Landing Page Frame",
+      "type": "frame",
+      "description": "Desktop landing page frame generated from Slack prompt."
+    },
+    {
+      "name": "Navigation",
+      "type": "section",
+      "description": "Figma section for Navigation."
+    },
+    {
+      "name": "Hero reservation CTA",
+      "type": "section",
+      "description": "Figma section for Hero reservation CTA."
+    },
+    {
+      "name": "Signature dishes",
+      "type": "section",
+      "description": "Figma section for Signature dishes."
+    },
+    {
+      "name": "Chef story",
+      "type": "section",
+      "description": "Figma section for Chef story."
+    },
+    {
+      "name": "Private dining CTA",
+      "type": "section",
+      "description": "Figma section for Private dining CTA."
+    },
+    {
+      "name": "Footer",
+      "type": "section",
+      "description": "Figma section for Footer."
+    }
+  ]
+}
