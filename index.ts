@@ -57,6 +57,7 @@ type FigmaDesignArtifact = {
 type ReactGenerationResult = {
   summary: string;
   componentName: string;
+  previewHtml: string;
   generatedFiles: GeneratedFile[];
 };
 
@@ -70,10 +71,12 @@ type DeliveryRecord = {
   figmaUrl?: string | null | undefined;
   figmaDesignSpecPath?: string | null | undefined;
   figmaPluginPayloadPath?: string | null | undefined;
+  designBrief?: DesignBrief | undefined;
   llmSummary?: string | null | undefined;
   acceptanceCriteria?: string[] | undefined;
   implementationPlan?: string[] | undefined;
   riskLevel?: 'low' | 'medium' | 'high' | undefined;
+  generatedPreviewHtml?: string | undefined;
   generatedFiles?: string[] | undefined;
 };
 
@@ -171,10 +174,12 @@ const deliveryRecordSchema = z.object({
   figmaUrl: z.string().nullable().optional(),
   figmaDesignSpecPath: z.string().nullable().optional(),
   figmaPluginPayloadPath: z.string().nullable().optional(),
+  designBrief: z.lazy(() => designBriefSchema).optional(),
   llmSummary: z.string().nullable().optional(),
   acceptanceCriteria: z.array(z.string()).optional(),
   implementationPlan: z.array(z.string()).optional(),
   riskLevel: z.enum(['low', 'medium', 'high']).optional(),
+  generatedPreviewHtml: z.string().optional(),
   generatedFiles: z.array(z.string()).optional()
 });
 
@@ -213,6 +218,7 @@ const figmaDesignArtifactSchema = z.object({
 const reactGenerationResultSchema = z.object({
   summary: z.string(),
   componentName: z.string(),
+  previewHtml: z.string(),
   generatedFiles: z.array(generatedFileSchema)
 });
 
@@ -449,6 +455,43 @@ async function callOpenAiJson<T>(prompt: string, schema: z.ZodType<T>, fallback:
   return schema.parse(JSON.parse(extractChatCompletionText(await response.json())));
 }
 
+// Calls OpenAI for steps that must be truly agentic and should fail instead of using a deterministic template.
+async function callOpenAiJsonStrict<T>(prompt: string, schema: z.ZodType<T>): Promise<T> {
+  return schema.parse(await callOpenAiJsonStrictRaw(prompt));
+}
+
+// Calls OpenAI and returns raw JSON so the caller can normalize common model shape drift before validation.
+async function callOpenAiJsonStrictRaw(prompt: string): Promise<unknown> {
+  const apiKey = requiredEnv('OPENAI_API_KEY');
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: optionalEnv('OPENAI_MODEL') ?? 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an autonomous React code generation agent. Return valid JSON only. Do not include markdown fences.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI React code generation failed with ${response.status}: ${await response.text()}`);
+  }
+
+  return JSON.parse(extractChatCompletionText(await response.json()));
+}
+
 // Produces a reliable local design brief for the restaurant landing-page demo when the LLM is unavailable.
 function fallbackDesignBrief(requestedWork: string): DesignBrief {
   return {
@@ -476,6 +519,86 @@ function fallbackDesignBrief(requestedWork: string): DesignBrief {
   };
 }
 
+// Converts flexible LLM brief output into the strict internal DesignBrief contract used by downstream agents.
+function valueToText(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    const joined = value.map((item) => valueToText(item, '')).filter(Boolean).join(', ');
+    return joined || fallback;
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const preferredValue = record.value ?? record.name ?? record.label ?? record.title ?? record.text ?? record.description;
+    if (preferredValue !== undefined) {
+      return valueToText(preferredValue, fallback);
+    }
+
+    const flattened = Object.entries(record)
+      .map(([key, item]) => `${key}: ${valueToText(item, '')}`)
+      .filter((item) => !item.endsWith(': '))
+      .join(', ');
+    return flattened || fallback;
+  }
+
+  return fallback;
+}
+
+// Converts flexible LLM arrays/objects into a plain string array.
+function valueToTextArray(value: unknown, fallback: string[]): string[] {
+  if (Array.isArray(value)) {
+    const normalized = value.map((item) => valueToText(item, '')).filter(Boolean);
+    return normalized.length > 0 ? normalized : fallback;
+  }
+
+  if (value && typeof value === 'object') {
+    const normalized = Object.values(value as Record<string, unknown>).map((item) => valueToText(item, '')).filter(Boolean);
+    return normalized.length > 0 ? normalized : fallback;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    return value.split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
+  }
+
+  return fallback;
+}
+
+// Normalizes model variants like "Medium" into the strict risk enum.
+function normalizeRiskLevel(value: unknown): DesignBrief['riskLevel'] {
+  const normalized = valueToText(value, 'low').toLowerCase();
+  if (normalized.includes('high')) {
+    return 'high';
+  }
+  if (normalized.includes('medium')) {
+    return 'medium';
+  }
+  return 'low';
+}
+
+// Repairs common LLM shape drift while preserving the model's semantic choices.
+function normalizeDesignBrief(rawBrief: unknown, requestedWork: string): DesignBrief {
+  const fallback = fallbackDesignBrief(requestedWork);
+  const rawRecord = rawBrief && typeof rawBrief === 'object' ? rawBrief as Record<string, unknown> : {};
+  const normalizedBrief: DesignBrief = {
+    pageType: valueToText(rawRecord.pageType, fallback.pageType),
+    brandName: valueToText(rawRecord.brandName, fallback.brandName),
+    audience: valueToText(rawRecord.audience, fallback.audience),
+    mood: valueToText(rawRecord.mood, fallback.mood),
+    colorPalette: valueToTextArray(rawRecord.colorPalette, fallback.colorPalette).slice(0, 8),
+    typography: valueToText(rawRecord.typography, fallback.typography),
+    sections: valueToTextArray(rawRecord.sections, fallback.sections),
+    primaryCta: valueToText(rawRecord.primaryCta, fallback.primaryCta),
+    acceptanceCriteria: valueToTextArray(rawRecord.acceptanceCriteria, fallback.acceptanceCriteria),
+    implementationPlan: valueToTextArray(rawRecord.implementationPlan, fallback.implementationPlan),
+    riskLevel: normalizeRiskLevel(rawRecord.riskLevel)
+  };
+
+  return designBriefSchema.parse(normalizedBrief);
+}
+
 // Uses an LLM to convert the Slack prompt into a structured product/design brief.
 async function generateDesignBriefWithLlm(context: ExecutionContext): Promise<DesignBriefResults> {
   const prompt = [
@@ -484,12 +607,17 @@ async function generateDesignBriefWithLlm(context: ExecutionContext): Promise<De
     `Slack prompt: ${context.requestedWork}`,
     'The user wants the Figma agent to create the design first, then convert that design to React.',
     'Required JSON keys: pageType, brandName, audience, mood, colorPalette, typography, sections, primaryCta, acceptanceCriteria, implementationPlan, riskLevel.',
+    'Important: colorPalette must be an array of hex color strings.',
+    'Important: typography, primaryCta, and every sections item must be plain strings.',
+    'Important: riskLevel must be exactly one of: low, medium, high.',
     'Use realistic restaurant landing-page content if the prompt is vague.'
   ].join('\n');
 
+  const rawBrief = await callOpenAiJson(prompt, z.unknown(), fallbackDesignBrief(context.requestedWork));
+
   return {
     ...context,
-    designBrief: await callOpenAiJson(prompt, designBriefSchema, fallbackDesignBrief(context.requestedWork))
+    designBrief: normalizeDesignBrief(rawBrief, context.requestedWork)
   };
 }
 
@@ -570,6 +698,54 @@ function hexToRgb(hex) {
 main();`;
 }
 
+// Normalizes React agent output so generatedFiles may be an array or an object map keyed by file path/name.
+function normalizeReactGeneration(rawGeneration: unknown, input: FigmaDesignResults): ReactGenerationResult {
+  const rawRecord = rawGeneration && typeof rawGeneration === 'object' ? rawGeneration as Record<string, unknown> : {};
+  const rawGeneratedFiles = rawRecord.generatedFiles;
+  const generatedFiles = Array.isArray(rawGeneratedFiles)
+    ? rawGeneratedFiles.map((file) => {
+        if (file && typeof file === 'object') {
+          const record = file as Record<string, unknown>;
+          return {
+            path: valueToText(record.path ?? record.filePath ?? record.name, ''),
+            content: valueToText(record.content ?? record.code ?? record.source, '')
+          };
+        }
+
+        return {
+          path: '',
+          content: valueToText(file, '')
+        };
+      })
+    : rawGeneratedFiles && typeof rawGeneratedFiles === 'object'
+      ? Object.entries(rawGeneratedFiles as Record<string, unknown>).map(([fileName, fileValue]) => {
+          const normalizedPath = fileName.includes('/')
+            ? fileName
+            : `generated-app/src/${fileName}`;
+          return {
+            path: normalizedPath,
+            content: valueToText(fileValue, '')
+          };
+        })
+      : [];
+
+  const normalizedFiles = generatedFiles
+    .map((file) => ({
+      path: file.path.replace(/\\/g, '/').replace(/^src\//, 'generated-app/src/'),
+      content: file.content
+    }))
+    .filter((file) => file.path && file.content);
+
+  const normalizedGeneration: ReactGenerationResult = {
+    summary: valueToText(rawRecord.summary, `Generated React UI for ${input.designBrief.brandName}.`),
+    componentName: valueToText(rawRecord.componentName, `${slugify(input.designBrief.brandName).replace(/(^|-)([a-z])/g, (_match, _dash, char: string) => char.toUpperCase())}GeneratedPage`),
+    previewHtml: valueToText(rawRecord.previewHtml ?? rawRecord.html ?? rawRecord.standaloneHtml, ''),
+    generatedFiles: normalizedFiles
+  };
+
+  return reactGenerationResultSchema.parse(normalizedGeneration);
+}
+
 // Creates Figma design artifacts from the LLM brief and writes the plugin payload through MCP.
 async function createFigmaDesignFromBrief(input: DesignBriefResults): Promise<FigmaDesignResults> {
   const slug = slugify(input.designBrief.brandName);
@@ -606,208 +782,56 @@ async function createFigmaDesignFromBrief(input: DesignBriefResults): Promise<Fi
   };
 }
 
-// Converts the Figma design artifact into React source files for the generated app preview.
+// Converts the Figma design artifact into React source files through an LLM code-generation agent.
 async function generateReactFromFigmaDesign(input: FigmaDesignResults): Promise<ReactGenerationResults> {
-  const brief = input.designBrief;
-  const componentName = `${slugify(brief.brandName).replace(/(^|-)([a-z])/g, (_match, _dash, char: string) => char.toUpperCase())}LandingPage`;
-  const dishes = ['Charred tomato burrata', 'Saffron seafood risotto', 'Wood-fired herb chicken'];
-  const sectionsMarkup = brief.sections.map((section) => `<span>${section}</span>`).join('\n              ');
+  const infrastructureFiles: GeneratedFile[] = [
+    {
+      path: 'generated-app/package.json',
+      content: JSON.stringify({
+        scripts: { dev: 'vite', build: 'vite build', preview: 'vite preview' },
+        dependencies: { '@vitejs/plugin-react': 'latest', vite: 'latest', react: 'latest', 'react-dom': 'latest' },
+        devDependencies: {}
+      }, null, 2)
+    },
+    { path: 'generated-app/index.html', content: '<div id="root"></div><script type="module" src="/src/main.jsx"></script>\n' },
+    { path: 'generated-app/src/main.jsx', content: "import React from 'react';\nimport { createRoot } from 'react-dom/client';\nimport App from './App.jsx';\n\ncreateRoot(document.getElementById('root')).render(<App />);\n" }
+  ];
 
-  const appJsx = `import './App.css';
+  const prompt = [
+    'Generate production-quality React/Vite source files from this Figma design artifact.',
+    'Return JSON only with keys: summary, componentName, previewHtml, generatedFiles.',
+    'generatedFiles must include exactly these app source files: generated-app/src/App.jsx and generated-app/src/App.css.',
+    'Do not include package.json, index.html, or main.jsx; the runtime provides those infrastructure files.',
+    'previewHtml must be a complete standalone HTML document that visually matches the generated React UI and can be served directly from Railway.',
+    'Use React function components and plain CSS only. Do not import external UI libraries or image assets.',
+    'App.jsx must import ./App.css and export a default component.',
+    'CSS must be responsive for mobile and desktop and must avoid text overlap.',
+    'The UI must fit the actual prompt and design brief, not a fixed restaurant template.',
+    '',
+    `Original Slack prompt: ${input.requestedWork}`,
+    `Requester: ${input.requester}`,
+    '',
+    `Design brief JSON:\n${JSON.stringify(input.designBrief, null, 2)}`,
+    '',
+    `Figma artifact JSON:\n${JSON.stringify(input.figmaDesign, null, 2)}`
+  ].join('\n');
 
-const dishes = ${JSON.stringify(dishes, null, 2)};
+  const generatedByAgent = normalizeReactGeneration(await callOpenAiJsonStrictRaw(prompt), input);
+  const appJsx = generatedByAgent.generatedFiles.find((file) => file.path === 'generated-app/src/App.jsx');
+  const appCss = generatedByAgent.generatedFiles.find((file) => file.path === 'generated-app/src/App.css');
 
-export default function App() {
-  return (
-    <main className="page-shell">
-      <nav className="nav">
-        <strong>${brief.brandName}</strong>
-        <div>
-          <a href="#menu">Menu</a>
-          <a href="#story">Story</a>
-          <a href="#reserve">Reserve</a>
-        </div>
-      </nav>
-
-      <section className="hero">
-        <p className="eyebrow">${brief.pageType}</p>
-        <h1>${brief.brandName}</h1>
-        <p className="lede">${brief.mood} dining for ${brief.audience}.</p>
-        <a className="cta" href="#reserve">${brief.primaryCta}</a>
-      </section>
-
-      <section id="menu" className="menu-grid">
-        {dishes.map((dish) => (
-          <article key={dish}>
-            <p>Signature</p>
-            <h2>{dish}</h2>
-            <span>Seasonal ingredients, composed for a memorable table experience.</span>
-          </article>
-        ))}
-      </section>
-
-      <section id="story" className="story">
-        <div>
-          <p className="eyebrow">Design Sections</p>
-          <h2>Figma-created structure converted to React</h2>
-        </div>
-        <div className="section-list">
-          ${sectionsMarkup}
-        </div>
-      </section>
-
-      <section id="reserve" className="reservation">
-        <h2>Ready for dinner?</h2>
-        <p>Reserve a table for a warm evening of thoughtful food and polished service.</p>
-        <button>${brief.primaryCta}</button>
-      </section>
-    </main>
-  );
-}
-`;
-
-  const appCss = `:root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: ${brief.colorPalette[0] ?? '#101820'};
-  background: ${brief.colorPalette[1] ?? '#f7efe2'};
-}
-
-body {
-  margin: 0;
-}
-
-.page-shell {
-  min-height: 100vh;
-  background: linear-gradient(180deg, ${brief.colorPalette[1] ?? '#f7efe2'} 0%, #fffaf2 100%);
-}
-
-.nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px clamp(20px, 5vw, 80px);
-}
-
-.nav div {
-  display: flex;
-  gap: 18px;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.hero {
-  min-height: 72vh;
-  display: grid;
-  align-content: center;
-  padding: 40px clamp(20px, 7vw, 110px);
-  background: ${brief.colorPalette[0] ?? '#101820'};
-  color: ${brief.colorPalette[1] ?? '#f7efe2'};
-}
-
-.eyebrow {
-  color: ${brief.colorPalette[3] ?? '#d7a86e'};
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-h1 {
-  font-size: clamp(54px, 9vw, 128px);
-  line-height: 0.92;
-  margin: 10px 0 20px;
-  max-width: 960px;
-}
-
-.lede {
-  font-size: clamp(20px, 3vw, 34px);
-  max-width: 760px;
-  color: rgba(247, 239, 226, 0.82);
-}
-
-.cta,
-button {
-  width: fit-content;
-  border: 0;
-  border-radius: 999px;
-  background: ${brief.colorPalette[2] ?? '#c94f3d'};
-  color: #fff;
-  padding: 14px 22px;
-  font-weight: 800;
-}
-
-.menu-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 18px;
-  padding: 72px clamp(20px, 6vw, 96px);
-}
-
-.menu-grid article,
-.reservation {
-  border-radius: 18px;
-  background: #fff;
-  padding: 28px;
-  box-shadow: 0 18px 45px rgba(16, 24, 32, 0.08);
-}
-
-.story {
-  display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  gap: 32px;
-  padding: 40px clamp(20px, 6vw, 96px) 80px;
-}
-
-.section-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.section-list span {
-  border: 1px solid rgba(16, 24, 32, 0.15);
-  border-radius: 999px;
-  padding: 10px 14px;
-}
-
-.reservation {
-  margin: 0 clamp(20px, 6vw, 96px) 80px;
-  background: ${brief.colorPalette[4] ?? '#355e4b'};
-  color: #fff;
-}
-
-@media (max-width: 760px) {
-  .nav,
-  .story {
-    display: block;
+  if (!appJsx || !appCss) {
+    throw new Error('React Code Generator Agent must return generated-app/src/App.jsx and generated-app/src/App.css.');
   }
-
-  .nav div {
-    margin-top: 12px;
-  }
-}
-`;
 
   return {
     ...input,
     reactGeneration: {
-      summary: `Generated a responsive React restaurant landing page for ${brief.brandName} from the Figma design spec.`,
-      componentName,
+      ...generatedByAgent,
       generatedFiles: [
-        {
-          path: 'generated-app/package.json',
-          content: JSON.stringify({
-            scripts: { dev: 'vite', build: 'vite build', preview: 'vite preview' },
-            dependencies: { '@vitejs/plugin-react': 'latest', vite: 'latest', react: 'latest', 'react-dom': 'latest' },
-            devDependencies: {}
-          }, null, 2)
-        },
-        { path: 'generated-app/index.html', content: '<div id="root"></div><script type="module" src="/src/main.jsx"></script>\n' },
-        { path: 'generated-app/src/main.jsx', content: "import React from 'react';\nimport { createRoot } from 'react-dom/client';\nimport App from './App.jsx';\n\ncreateRoot(document.getElementById('root')).render(<App />);\n" },
-        { path: 'generated-app/src/App.jsx', content: appJsx },
-        { path: 'generated-app/src/App.css', content: appCss }
+        ...infrastructureFiles,
+        appJsx,
+        appCss
       ]
     }
   };
@@ -986,10 +1010,12 @@ async function runDeliveryAnalysis(generationContext: ReactGenerationResults): P
             figmaUrl: generationContext.figmaDesign.figmaUrl,
             figmaDesignSpecPath: generationContext.figmaDesign.designSpecPath,
             figmaPluginPayloadPath: generationContext.figmaDesign.pluginPayloadPath,
+            designBrief: generationContext.designBrief,
             llmSummary: generationContext.reactGeneration.summary,
             acceptanceCriteria: generationContext.designBrief.acceptanceCriteria,
             implementationPlan: generationContext.designBrief.implementationPlan,
             riskLevel: generationContext.designBrief.riskLevel,
+            generatedPreviewHtml: generationContext.reactGeneration.previewHtml,
             generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path)
           }
         : record
@@ -1023,10 +1049,12 @@ async function runDeliveryAnalysis(generationContext: ReactGenerationResults): P
     figmaUrl: generationContext.figmaDesign.figmaUrl,
     figmaDesignSpecPath: generationContext.figmaDesign.designSpecPath,
     figmaPluginPayloadPath: generationContext.figmaDesign.pluginPayloadPath,
+    designBrief: generationContext.designBrief,
     llmSummary: generationContext.reactGeneration.summary,
     acceptanceCriteria: generationContext.designBrief.acceptanceCriteria,
     implementationPlan: generationContext.designBrief.implementationPlan,
     riskLevel: generationContext.designBrief.riskLevel,
+    generatedPreviewHtml: generationContext.reactGeneration.previewHtml,
     generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path)
   };
 
@@ -1042,10 +1070,12 @@ async function runDeliveryAnalysis(generationContext: ReactGenerationResults): P
               figmaUrl: generationContext.figmaDesign.figmaUrl,
               figmaDesignSpecPath: generationContext.figmaDesign.designSpecPath,
               figmaPluginPayloadPath: generationContext.figmaDesign.pluginPayloadPath,
+              designBrief: generationContext.designBrief,
               llmSummary: generationContext.reactGeneration.summary,
               acceptanceCriteria: generationContext.designBrief.acceptanceCriteria,
               implementationPlan: generationContext.designBrief.implementationPlan,
               riskLevel: generationContext.designBrief.riskLevel,
+              generatedPreviewHtml: generationContext.reactGeneration.previewHtml,
               generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path)
             }
           : record
@@ -1744,18 +1774,39 @@ function escapeHtml(value: string): string {
 function buildFigmaPluginSessionPayload(requestId: string): Record<string, unknown> {
   const database = deliveryDatabaseSchema.parse(JSON.parse(fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')));
   const deliveryRecord = requestId === 'latest'
-    ? [...database.requests].reverse().find((item) => item.figmaDesignSpecPath)
+    ? [...database.requests].reverse().find((item) => item.figmaDesignSpecPath || item.designBrief)
     : database.requests.find((item) => item.id === requestId);
 
-  if (!deliveryRecord?.figmaDesignSpecPath) {
-    throw new Error(`No Figma design spec was found for request ${requestId}.`);
+  if (!deliveryRecord) {
+    throw new Error(`No delivery request was found for request ${requestId}.`);
   }
 
-  const specPath = resolveGeneratedArtifactPath(deliveryRecord.figmaDesignSpecPath);
-  const designSpec = z.object({
-    brief: designBriefSchema,
-    nodes: figmaDesignArtifactSchema.shape.nodes
-  }).parse(JSON.parse(fs.readFileSync(specPath, 'utf-8')));
+  let designSpec: { brief: DesignBrief; nodes: FigmaDesignArtifact['nodes'] };
+  if (deliveryRecord.figmaDesignSpecPath && fs.existsSync(resolveGeneratedArtifactPath(deliveryRecord.figmaDesignSpecPath))) {
+    const specPath = resolveGeneratedArtifactPath(deliveryRecord.figmaDesignSpecPath);
+    designSpec = z.object({
+      brief: designBriefSchema,
+      nodes: figmaDesignArtifactSchema.shape.nodes
+    }).parse(JSON.parse(fs.readFileSync(specPath, 'utf-8')));
+  } else if (deliveryRecord.designBrief) {
+    designSpec = {
+      brief: deliveryRecord.designBrief,
+      nodes: [
+        {
+          name: `${deliveryRecord.designBrief.brandName} Generated UI`,
+          type: 'frame',
+          description: 'Generated UI frame reconstructed from persisted delivery metadata.'
+        },
+        ...deliveryRecord.designBrief.sections.map((section) => ({
+          name: section,
+          type: 'section' as const,
+          description: `Generated section for ${section}.`
+        }))
+      ]
+    };
+  } else {
+    throw new Error(`No Figma design spec or persisted design brief was found for request ${requestId}.`);
+  }
 
   return {
     status: 'ok',
@@ -1771,6 +1822,15 @@ function buildFigmaPluginSessionPayload(requestId: string): Record<string, unkno
 
 // Renders the generated UI directly from the workflow design brief so Slack can link to a live Railway page.
 function renderGeneratedUi(requestId: string): string {
+  const database = deliveryDatabaseSchema.parse(JSON.parse(fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')));
+  const deliveryRecord = requestId === 'latest'
+    ? [...database.requests].reverse().find((item) => item.generatedPreviewHtml || item.designBrief || item.figmaDesignSpecPath)
+    : database.requests.find((item) => item.id === requestId);
+
+  if (deliveryRecord?.generatedPreviewHtml) {
+    return deliveryRecord.generatedPreviewHtml;
+  }
+
   const payload = buildFigmaPluginSessionPayload(requestId);
   const parsedPayload = z.object({
     requestId: z.string(),
@@ -1793,7 +1853,7 @@ function renderGeneratedUi(requestId: string): string {
   const accent = palette[2] ?? '#c94f3d';
   const gold = palette[3] ?? '#d7a86e';
   const green = palette[4] ?? '#355e4b';
-  const dishes = ['Charred tomato burrata', 'Saffron seafood risotto', 'Wood-fired herb chicken'];
+  const sectionCards = brief.sections.length > 0 ? brief.sections : ['Hero', 'Features', 'Call to action'];
 
   return `<!doctype html>
 <html lang="en">
@@ -1813,12 +1873,12 @@ function renderGeneratedUi(requestId: string): string {
     h1 { font-size: clamp(54px, 9vw, 128px); line-height: .92; margin: 10px 0 20px; max-width: 960px; }
     .lede { font-size: clamp(20px, 3vw, 34px); max-width: 760px; color: rgba(247,239,226,.82); }
     .cta, button { width: fit-content; border: 0; border-radius: 999px; background: ${escapeHtml(accent)}; color: #fff; padding: 14px 22px; font-weight: 800; }
-    .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; padding: 72px clamp(20px, 6vw, 96px); }
-    .menu-grid article, .reservation { border-radius: 18px; background: #fff; padding: 28px; box-shadow: 0 18px 45px rgba(16,24,32,.08); }
+    .content-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; padding: 72px clamp(20px, 6vw, 96px); }
+    .content-grid article, .final-cta { border-radius: 18px; background: #fff; padding: 28px; box-shadow: 0 18px 45px rgba(16,24,32,.08); }
     .story { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 32px; padding: 40px clamp(20px, 6vw, 96px) 80px; }
     .section-list { display: flex; flex-wrap: wrap; gap: 12px; }
     .section-list span { border: 1px solid rgba(16,24,32,.15); border-radius: 999px; padding: 10px 14px; }
-    .reservation { margin: 0 clamp(20px, 6vw, 96px) 80px; background: ${escapeHtml(green)}; color: #fff; }
+    .final-cta { margin: 0 clamp(20px, 6vw, 96px) 80px; background: ${escapeHtml(green)}; color: #fff; }
     .meta { padding: 16px clamp(20px, 5vw, 80px); color: #52606b; font-size: 14px; }
     @media (max-width: 760px) { .nav, .story { display: block; } .nav div { margin-top: 12px; } }
   </style>
@@ -1827,19 +1887,19 @@ function renderGeneratedUi(requestId: string): string {
   <nav class="nav">
     <strong>${escapeHtml(brief.brandName)}</strong>
     <div>
-      <a href="#menu">Menu</a>
+      <a href="#content">Content</a>
       <a href="#story">Story</a>
-      <a href="#reserve">Reserve</a>
+      <a href="#action">Action</a>
     </div>
   </nav>
   <section class="hero">
     <p class="eyebrow">${escapeHtml(brief.pageType)}</p>
     <h1>${escapeHtml(brief.brandName)}</h1>
-    <p class="lede">${escapeHtml(brief.mood)} dining for ${escapeHtml(brief.audience)}.</p>
-    <a class="cta" href="#reserve">${escapeHtml(brief.primaryCta)}</a>
+    <p class="lede">${escapeHtml(brief.mood)} experience for ${escapeHtml(brief.audience)}.</p>
+    <a class="cta" href="#action">${escapeHtml(brief.primaryCta)}</a>
   </section>
-  <section id="menu" class="menu-grid">
-    ${dishes.map((dish) => `<article><p>Signature</p><h2>${escapeHtml(dish)}</h2><span>Seasonal ingredients, composed for a memorable table experience.</span></article>`).join('\n    ')}
+  <section id="content" class="content-grid">
+    ${sectionCards.map((section) => `<article><p>Generated Section</p><h2>${escapeHtml(section)}</h2><span>${escapeHtml(brief.mood)} content generated from the design brief.</span></article>`).join('\n    ')}
   </section>
   <section id="story" class="story">
     <div>
@@ -1850,9 +1910,9 @@ function renderGeneratedUi(requestId: string): string {
       ${brief.sections.map((section) => `<span>${escapeHtml(section)}</span>`).join('\n      ')}
     </div>
   </section>
-  <section id="reserve" class="reservation">
-    <h2>Ready for dinner?</h2>
-    <p>Reserve a table for a warm evening of thoughtful food and polished service.</p>
+  <section id="action" class="final-cta">
+    <h2>${escapeHtml(brief.primaryCta)}</h2>
+    <p>This fallback preview was reconstructed from persisted design metadata.</p>
     <button>${escapeHtml(brief.primaryCta)}</button>
   </section>
   <p class="meta">Generated by request ${escapeHtml(parsedPayload.requestId)} for ${escapeHtml(parsedPayload.requester)}.</p>
