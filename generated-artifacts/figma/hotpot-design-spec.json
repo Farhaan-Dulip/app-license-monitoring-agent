@@ -1,49 +1,46 @@
 {
   "brief": {
-    "pageType": "Landing Page",
+    "pageType": "landing",
     "brandName": "HotPot",
-    "audience": "Food enthusiasts, families, and friends looking for a modern dining experience.",
-    "mood": "Warm and inviting, with a touch of modernity.",
+    "audience": "food enthusiasts, locals, families, young adults",
+    "mood": "modern and inviting",
     "colorPalette": [
-      "#FF6347",
-      "#FFD700",
-      "#FFFFFF",
-      "#4B0082",
-      "#2E8B57"
+      "#FF5733",
+      "#FFC300",
+      "#C70039",
+      "#581845",
+      "#900C3F"
     ],
-    "typography": "Poppins, sans-serif",
+    "typography": "Montserrat, sans-serif",
     "sections": [
-      "Hero Section with restaurant name and tagline",
-      "About Us Section with brief history and mission",
-      "Menu Section showcasing featured dishes",
-      "Reservation Section with a call to action",
-      "Testimonials Section with customer reviews",
-      "Contact Information Section with address and social media links"
+      "Hero Section with a catchy tagline and stunning visuals of dishes",
+      "About Us section detailing the restaurant's story and mission",
+      "Menu Preview showcasing selected dishes with descriptions and prices",
+      "Reservation section highlighting booking options",
+      "Customer Testimonials for social proof",
+      "Contact Information with a contact form and map",
+      "Footer section with social media links and additional website links"
     ],
     "primaryCta": "Make a Reservation",
     "acceptanceCriteria": [
-      "The landing page must be visually appealing",
-      "responsive on all devices",
-      "load within 3 seconds",
-      "and include all sections outlined."
+      "The landing page must be responsive",
+      "visually appealing",
+      "and functional with a clear call to action for reservations."
     ],
     "implementationPlan": [
-      "Design the landing page in Figma",
-      "gather feedback",
-      "iterate on the design",
-      "then convert the finalized design into a React application."
+      "1. Design the landing page in Figma. 2. Gather feedback on the design. 3. Convert the Figma design into a React application. 4. Perform user testing and make necessary adjustments."
     ],
     "riskLevel": "medium"
   },
   "designSystem": {
     "palette": [
-      "#FF6347",
-      "#FFD700",
-      "#FFFFFF",
-      "#4B0082",
-      "#2E8B57"
+      "#FF5733",
+      "#FFC300",
+      "#C70039",
+      "#581845",
+      "#900C3F"
     ],
-    "typography": "Poppins, sans-serif",
+    "typography": "Montserrat, sans-serif",
     "spacingScale": [
       "8px",
       "12px",
@@ -82,37 +79,42 @@
     {
       "name": "Landing Page Frame",
       "type": "frame",
-      "description": "Landing Page desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections."
+      "description": "landing desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections."
     },
     {
-      "name": "Hero Section with restaurant name and tagline",
+      "name": "Hero Section with a catchy tagline and stunning visuals of dishes",
       "type": "section",
-      "description": "High-fidelity section for Hero Section with restaurant name and tagline. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+      "description": "High-fidelity section for Hero Section with a catchy tagline and stunning visuals of dishes. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
     },
     {
-      "name": "About Us Section with brief history and mission",
+      "name": "About Us section detailing the restaurant's story and mission",
       "type": "section",
-      "description": "High-fidelity section for About Us Section with brief history and mission. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+      "description": "High-fidelity section for About Us section detailing the restaurant's story and mission. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
     },
     {
-      "name": "Menu Section showcasing featured dishes",
+      "name": "Menu Preview showcasing selected dishes with descriptions and prices",
       "type": "section",
-      "description": "High-fidelity section for Menu Section showcasing featured dishes. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+      "description": "High-fidelity section for Menu Preview showcasing selected dishes with descriptions and prices. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
     },
     {
-      "name": "Reservation Section with a call to action",
+      "name": "Reservation section highlighting booking options",
       "type": "section",
-      "description": "High-fidelity section for Reservation Section with a call to action. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+      "description": "High-fidelity section for Reservation section highlighting booking options. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
     },
     {
-      "name": "Testimonials Section with customer reviews",
+      "name": "Customer Testimonials for social proof",
       "type": "section",
-      "description": "High-fidelity section for Testimonials Section with customer reviews. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+      "description": "High-fidelity section for Customer Testimonials for social proof. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
     },
     {
-      "name": "Contact Information Section with address and social media links",
+      "name": "Contact Information with a contact form and map",
       "type": "section",
-      "description": "High-fidelity section for Contact Information Section with address and social media links. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+      "description": "High-fidelity section for Contact Information with a contact form and map. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Footer section with social media links and additional website links",
+      "type": "section",
+      "description": "High-fidelity section for Footer section with social media links and additional website links. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
     }
   ]
 }

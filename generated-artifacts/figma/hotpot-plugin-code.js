@@ -1,17 +1,18 @@
 const sections = [
-  "Hero Section with restaurant name and tagline",
-  "About Us Section with brief history and mission",
-  "Menu Section showcasing featured dishes",
-  "Reservation Section with a call to action",
-  "Testimonials Section with customer reviews",
-  "Contact Information Section with address and social media links"
+  "Hero Section with a catchy tagline and stunning visuals of dishes",
+  "About Us section detailing the restaurant's story and mission",
+  "Menu Preview showcasing selected dishes with descriptions and prices",
+  "Reservation section highlighting booking options",
+  "Customer Testimonials for social proof",
+  "Contact Information with a contact form and map",
+  "Footer section with social media links and additional website links"
 ];
 const palette = [
-  "#FF6347",
-  "#FFD700",
-  "#FFFFFF",
-  "#4B0082",
-  "#2E8B57"
+  "#FF5733",
+  "#FFC300",
+  "#C70039",
+  "#581845",
+  "#900C3F"
 ];
 
 async function main() {
@@ -41,7 +42,7 @@ async function main() {
   subtitle.name = 'Hero subtitle';
   subtitle.fontName = { family: 'Inter', style: 'Regular' };
   subtitle.fontSize = 28;
-  subtitle.characters = "Warm and inviting, with a touch of modernity.";
+  subtitle.characters = "modern and inviting";
   subtitle.fills = [{ type: 'SOLID', color: hexToRgb(palette[4] || '#355e4b') }];
   frame.appendChild(subtitle);
 
