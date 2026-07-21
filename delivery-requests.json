@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T13:13:21.229Z",
+  "lastUpdated": "2026-07-21T15:35:55.561Z",
   "requests": [
     {
       "id": "req_001",
@@ -254,6 +254,222 @@
         "generated-app/src/App.jsx",
         "generated-app/src/App.css",
         "docs/design-to-react-req_009.md"
+      ]
+    },
+    {
+      "id": "req_010",
+      "request": "build ui screen for landing page for resturant",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/savory-delights-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/savory-delights-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing",
+        "brandName": "Savory Delights",
+        "audience": "food enthusiasts, families, couples, event planners",
+        "mood": "inviting, elegant, warm",
+        "colorPalette": [
+          "#FFCC00",
+          "#555555",
+          "#FFFFFF",
+          "#C38D00",
+          "#A84000"
+        ],
+        "typography": "Roboto, sans-serif",
+        "sections": [
+          "Hero Banner with Reservation CTA",
+          "Menu Highlights",
+          "Ambience & Decor",
+          "Chef's Story",
+          "Hours of Operation & Location",
+          "Private Dining & Events"
+        ],
+        "primaryCta": "Make a Reservation",
+        "acceptanceCriteria": [
+          "Design meets brand guidelines",
+          "responsive across devices",
+          "includes all key sections described."
+        ],
+        "implementationPlan": [
+          "Figma design -> Review and finalize -> Convert to React components -> Integrate with backend for reservations"
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "A polished restaurant landing page for 'Savory Delights' featuring a captivating hero section, menu highlights, ambience & decor storytelling, and essential operational details.",
+      "acceptanceCriteria": [
+        "Design meets brand guidelines",
+        "responsive across devices",
+        "includes all key sections described."
+      ],
+      "implementationPlan": [
+        "Figma design -> Review and finalize -> Convert to React components -> Integrate with backend for reservations"
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Savory Delights</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            font-family: 'Roboto', sans-serif;\n            background-color: #FFFFFF;\n            color: #555555;\n            line-height: 1.6;\n        }\n        header {\n            background: url('data:image/jpeg;base64,...') no-repeat center center/cover;\n            padding: 50px 0;\n            text-align: center;\n            color: #FFFFFF;\n        }\n        nav {\n            background-color: rgba(0, 0, 0, 0.7);\n            padding: 10px;\n            position: fixed;\n            width: 100%;\n            top: 0;\n            z-index: 100;\n        }\n        nav ul {\n            list-style: none;\n            display: flex;\n            justify-content: center;\n        }\n        nav ul li {\n            margin: 0 20px;\n        }\n        nav ul li a {\n            color: #FFCC00;\n            text-decoration: none;\n            transition: color 0.3s;\n        }\n        nav ul li a:hover {\n            color: #C38D00;\n        }\n        .hero {\n            padding: 120px 20px;\n            background: rgba(0, 0, 0, 0.5);\n            display: flex;\n            flex-direction: column;\n            align-items: center;\n        }\n        .hero h1 {\n            font-size: 3em;\n            margin: 0 0 20px;\n        }\n        .cta {\n            margin-top: 20px;\n            background-color: #FFCC00;\n            color: #555555;\n            padding: 10px 20px;\n            border: none;\n            font-size: 1.2em;\n            cursor: pointer;\n            transition: background-color 0.3s;\n        }\n        .cta:hover {\n            background-color: #C38D00;\n        }\n        .section {\n            padding: 50px 20px;\n            text-align: center;\n        }\n        .section h2 {\n            font-size: 2.5em;\n            margin-bottom: 20px;\n        }\n        .menu, .ambience {\n            display: flex;\n            justify-content: space-around;\n            flex-wrap: wrap;\n        }\n        .menu-item, .ambience-item {\n            flex: 0 1 30%;\n            margin: 20px;\n            padding: 20px;\n            border: 1px solid #C38D00;\n            transition: transform 0.3s;\n        }\n        .menu-item:hover, .ambience-item:hover {\n            transform: scale(1.05);\n        }\n        footer {\n            background-color: #555555;\n            color: #FFFFFF;\n            text-align: center;\n            padding: 20px;\n        }\n        @media(max-width: 768px) {\n            .menu-item, .ambience-item {\n                flex: 0 1 100%;\n            }\n            .hero h1 {\n                font-size: 2.5em;\n            }\n        }\n    </style>\n</head>\n<body>\n    <header>\n        <nav>\n            <ul>\n                <li><a href=\"#menu\">Menu</a></li>\n                <li><a href=\"#ambience\">Ambience</a></li>\n                <li><a href=\"#story\">Chef's Story</a></li>\n                <li><a href=\"#hours\">Location & Hours</a></li>\n                <li><a href=\"#events\">Events</a></li>\n            </ul>\n        </nav>\n        <div class=\"hero\">\n            <h1>Welcome to Savory Delights</h1>\n            <button class=\"cta\">Make a Reservation</button>\n        </div>\n    </header>\n    <section class=\"section\" id=\"menu\">\n        <h2>Menu Highlights</h2>\n        <div class=\"menu\">\n            <div class=\"menu-item\">\n                <h3>Pasta Primavera</h3>\n                <p>Fresh vegetables with homemade noodles.</p>\n            </div>\n            <div class=\"menu-item\">\n                <h3>Grilled Salmon</h3>\n                <p>Served with lemon butter sauce.</p>\n            </div>\n            <div class=\"menu-item\">\n                <h3>Chocolate Lava Cake</h3>\n                <p>Rich chocolate with a gooey center.</p>\n            </div>\n        </div>\n    </section>\n    <section class=\"section\" id=\"ambience\">\n        <h2>Ambience & Decor</h2>\n        <div class=\"ambience\">\n            <div class=\"ambience-item\">\n                <h3>Elegant Dining</h3>\n                <p>Experience fine dining in a warm atmosphere.</p>\n            </div>\n            <div class=\"ambience-item\">\n                <h3>Cozy Seating</h3>\n                <p>Perfect for family gatherings or intimate dates.</p>\n            </div>\n        </div>\n    </section>\n    <section class=\"section\" id=\"story\">\n        <h2>Chef's Story</h2>\n        <p>Our chef believes in crafting enticing dishes from the heart.</p>\n    </section>\n    <section class=\"section\" id=\"hours\">\n        <h2>Hours of Operation & Location</h2>\n        <p>Open Daily: 10 AM - 10 PM</p>\n        <p>123 Flavor Ave, Taste City, TC 45678</p>\n    </section>\n    <section class=\"section\" id=\"events\">\n        <h2>Private Dining & Events</h2>\n        <p>Book our place for special occasions.</p>\n    </section>\n    <footer>\n        <p>&copy; 2023 Savory Delights. All rights reserved.</p>\n    </footer>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_010.md"
+      ],
+      "uiQualityScore": 78,
+      "uiQualityFindings": [
+        "The hero banner does not clearly highlight the reservation CTA, which should be more prominent and engaging.",
+        "While the navigation bar exists, its overall design lacks visual clarity and does not leverage the color palette effectively to enhance the charm of the brand.",
+        "Menu content is presented in a box layout but could benefit from more visual storytelling or imagery to create a rich experience that captivates the audience.",
+        "Sections lack adequate spacing and visual hierarchy between headings and body text; font sizes should vary more significantly to guide the reader's eye.",
+        "While the sections are well defined, the layout feels too basic; incorporating background images or textures related to the restaurant's ambience could enhance user experience.",
+        "There is minimal differentiation in the hover state for menu items; this could be more visually appealing by introducing subtle effects.",
+        "Footer information could include additional brand elements like social media links or contact information to enhance engagement."
+      ]
+    },
+    {
+      "id": "req_011",
+      "request": "build a feedback form that includes input email, ratings and input comments section using text area",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/gourmet-bistro-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/gourmet-bistro-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing-page",
+        "brandName": "Gourmet Bistro",
+        "audience": "Food enthusiasts and families looking for a dining experience",
+        "mood": "Welcoming and Elegant",
+        "colorPalette": [
+          "#DAA520",
+          "#8B4513",
+          "#FFF8DC",
+          "#DC143C",
+          "#FFFFFF"
+        ],
+        "typography": "Helvetica, Arial, sans-serif",
+        "sections": [
+          "Reserve Your Table",
+          "Menu Highlights",
+          "Ambiance and Decor",
+          "Meet Our Chef",
+          "Hours and Location",
+          "Private Dining and Events"
+        ],
+        "primaryCta": "Book a Reservation",
+        "acceptanceCriteria": [
+          "User can easily navigate through sections",
+          "complete a reservation form",
+          "and view menu highlights. The design must be visually appealing and responsive."
+        ],
+        "implementationPlan": [
+          "1. Create design mockups in Figma. 2. Review and iterate based on feedback. 3. Convert designs to React components ensuring responsiveness. 4. Conduct user testing to validate functionality."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "A complete restaurant landing page for Gourmet Bistro, featuring a navigation bar, full hero section, curated menu highlights, engaging ambiance story, and a prominent reservation CTA, all designed to be responsive and visually appealing.",
+      "acceptanceCriteria": [
+        "User can easily navigate through sections",
+        "complete a reservation form",
+        "and view menu highlights. The design must be visually appealing and responsive."
+      ],
+      "implementationPlan": [
+        "1. Create design mockups in Figma. 2. Review and iterate based on feedback. 3. Convert designs to React components ensuring responsiveness. 4. Conduct user testing to validate functionality."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Gourmet Bistro Landing Page</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            font-family: 'Helvetica', 'Arial', sans-serif;\n            background-color: #FFF8DC;\n            color: #8B4513;\n            line-height: 1.6;\n        }\n        header {\n            background: #DAA520;\n            padding: 20px 0;\n            text-align: center;\n        }\n        nav ul {\n            list-style-type: none;\n            padding: 0;\n        }\n        nav ul li {\n            display: inline;\n            margin: 0 15px;\n        }\n        .hero {\n            background-image: url('hero-image.jpg'); /* Placeholder for an actual image */\n            height: 400px;\n            background-size: cover;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            color: white;\n            font-size: 2em;\n            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);\n        }\n        .section { padding: 60px 20px; }\n        .cta {\n            background-color: #DC143C;\n            color: white;\n            padding: 10px 20px;\n            border: none;\n            font-size: 1.2em;\n            cursor: pointer;\n            transition: background-color 0.3s;\n        }\n        .cta:hover {\n            background-color: #A00000;\n        }\n        .menu-item {\n            border: 1px solid #DAA520;\n            margin: 10px 0;\n            padding: 15px;\n            display: flex;\n            justify-content: space-between;\n        }\n        @media (max-width: 768px) {\n            .menu-item {\n                flex-direction: column;\n            }\n            .hero { font-size: 1.5em; }\n        }\n    </style>\n</head>\n<body>\n    <header>\n        <nav>\n            <ul>\n                <li>Home</li>\n                <li>Menu</li>\n                <li>About</li>\n                <li>Contact</li>\n            </ul>\n        </nav>\n    </header>\n    <div class=\"hero\">\n        <h1>Welcome to Gourmet Bistro</h1>\n    </div>\n    <div class=\"section\">\n        <h2>Reserve Your Table</h2>\n        <button class=\"cta\">Book a Reservation</button>\n    </div>\n    <div class=\"section\">\n        <h2>Menu Highlights</h2>\n        <div class=\"menu-item\">\n            <span>Spaghetti Carbonara</span>\n            <span>$15</span>\n        </div>\n        <div class=\"menu-item\">\n            <span>Grilled Salmon</span>\n            <span>$20</span>\n        </div>\n        <div class=\"menu-item\">\n            <span>Chocolate Lava Cake</span>\n            <span>$8</span>\n        </div>\n    </div>\n    <div class=\"section\">\n        <h2>Ambiance and Decor</h2>\n        <p>Experience a cozy and elegant atmosphere perfect for family gatherings and romantic dinners.</p>\n    </div>\n    <div class=\"section\">\n        <h2>Meet Our Chef</h2>\n        <p>Our chef brings a wealth of experience and passion for culinary excellence.</p>\n    </div>\n    <div class=\"section\">\n        <h2>Hours and Location</h2>\n        <p>Open daily from 11 AM to 10 PM</p>\n        <p>123 Gourmet St, Foodie City</p>\n    </div>\n    <div class=\"section\">\n        <h2>Private Dining and Events</h2>\n        <p>Book our private space for your next event!</p>\n    </div>\n    <footer>\n        <p>&copy; 2023 Gourmet Bistro</p>\n    </footer>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_011.md"
+      ],
+      "uiQualityScore": 75,
+      "uiQualityFindings": [
+        "The UI lacks a dedicated feedback form element that includes the input for email, ratings, and comments, which does not align with the prompt requirements.",
+        "The layout has a plain structure with generic content sections that do not offer visual engagement or distinct hierarchy.",
+        "The use of a simple navigation and default styling for lists diminishes the overall aesthetic. Improved styling and visual hierarchy for the navigation items are needed.",
+        "Color contrast must be improved for better accessibility and user experience, especially in text elements against background colors.",
+        "The hero section should not just have a welcome message; it should better represent the dining experience visually, perhaps including vibrant imagery alongside the text.",
+        "Missing responsive adjustments for the footer and sections, which may lead to a non-optimized experience on smaller screens."
+      ]
+    },
+    {
+      "id": "req_012",
+      "request": "i want a feedback form that includes input field for email and ratings and text area for comment sections",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/culinary-delights-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/culinary-delights-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing-page",
+        "brandName": "Culinary Delights",
+        "audience": "Food enthusiasts and dining customers",
+        "mood": "Welcoming and sophisticated",
+        "colorPalette": [
+          "#D84315",
+          "#FFB74D",
+          "#FFFFFF",
+          "#000000",
+          "#4CAF50"
+        ],
+        "typography": "Roboto, sans-serif",
+        "sections": [
+          "Hero Section with reservation call-to-action",
+          "Menu highlights showcasing special dishes",
+          "Ambience description with visuals",
+          "Chef's Story and background",
+          "Hours and Location details",
+          "Private Dining or Events information",
+          "Feedback Form with email input, rating selection, and comments"
+        ],
+        "primaryCta": "Make a Reservation",
+        "acceptanceCriteria": [
+          "Design is clean",
+          "responsive",
+          "and incorporates all specified sections with functional feedback form."
+        ],
+        "implementationPlan": [
+          "Design will be created in Figma and then translated into React components."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "A complete landing page for 'Culinary Delights' that includes a hero section, dynamic menu highlights, ambience descriptions, a chef's story, location details, and a well-styled feedback form, ensuring a cohesive and engaging user experience.",
+      "acceptanceCriteria": [
+        "Design is clean",
+        "responsive",
+        "and incorporates all specified sections with functional feedback form."
+      ],
+      "implementationPlan": [
+        "Design will be created in Figma and then translated into React components."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Culinary Delights</title>\n    <style>\n        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\n        body { font-family: 'Roboto', sans-serif; background-color: #FFFFFF; color: #000000; }\n        header { background-color: #D84315; padding: 20px; text-align: center; color: #FFFFFF; }\n        h1 { font-size: 2.5rem; margin-bottom: 10px; }\n        .cta { background-color: #FFB74D; padding: 15px 25px; color: #000000; text-decoration: none; border-radius: 5px; transition: background-color 0.3s; }\n        .cta:hover { background-color: #FFA726; }\n        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }\n        .section { margin-bottom: 40px; }\n        .feedback-form { background-color: #F5F5F5; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); }\n        input, textarea { width: 100%; padding: 10px; border: 1px solid #BDBDBD; border-radius: 5px; margin-bottom: 15px; font-size: 1rem; }\n        input:focus, textarea:focus { border-color: #4CAF50; outline: none; }\n        .rating { display: flex; justify-content: space-between; margin-bottom: 15px; }\n        .rating-label { margin-right: 10px; }\n        footer { text-align: center; padding: 20px; background-color: #D84315; color: #FFFFFF; }\n        @media (max-width: 768px) { h1 { font-size: 2rem; } }\n    </style>\n</head>\n<body>\n    <header>\n        <h1>Culinary Delights</h1>\n        <a class=\"cta\" href=\"#reservation\">Make a Reservation</a>\n    </header>\n    <div class=\"container\">\n        <section class=\"section\" id=\"menu\">\n            <h2>Menu Highlights</h2>\n            <p>Discover our special dishes prepared by the finest chefs.</p>\n        </section>\n        <section class=\"section\" id=\"ambience\">\n            <h2>Ambience</h2>\n            <p>Experience a welcoming and sophisticated dining atmosphere.</p>\n        </section>\n        <section class=\"section\" id=\"chefs-story\">\n            <h2>Chef's Story</h2>\n            <p>Learn about our chef's journey and passion for culinary arts.</p>\n        </section>\n        <section class=\"section\" id=\"location-hours\">\n            <h2>Hours & Location</h2>\n            <p>Visit us at our convenient location during our open hours!</p>\n        </section>\n        <section class=\"section feedback-form\">\n            <h2>Feedback</h2>\n            <form>\n                <input type=\"email\" placeholder=\"Your Email\" required />\n                <div class=\"rating\">\n                    <label class=\"rating-label\">Rating:</label>\n                    <select required>\n                        <option value=\"5\">⭐️⭐️⭐️⭐️⭐️</option>\n                        <option value=\"4\">⭐️⭐️⭐️⭐️</option>\n                        <option value=\"3\">⭐️⭐️⭐️</option>\n                        <option value=\"2\">⭐️⭐️</option>\n                        <option value=\"1\">⭐️</option>\n                    </select>\n                </div>\n                <textarea rows=\"4\" placeholder=\"Your Comments\" required></textarea>\n                <button type=\"submit\" class=\"cta\">Submit Feedback</button>\n            </form>\n        </section>\n    </div>\n    <footer>\n        <p>Thank you for visiting us!</p>\n    </footer>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_012.md"
+      ],
+      "uiQualityScore": 65,
+      "uiQualityFindings": [
+        "The form is inadequately centered and lacks visual hierarchy, making it feel default rather than polished.",
+        "The feedback form's input fields and buttons do not have enough padding or margin for accessibility and usability, leading to a cramped layout.",
+        "The rating selection uses a dropdown, which is a plain browser default control. It would be better to use radio buttons or a star rating component for a more engaging user experience.",
+        "Css classes such as '.section' and '.feedback-form' lack unique identifiers to enhance specificity and allow for more customized designs.",
+        "There is no responsive design treatment for the feedback form, leading to potential usability issues on mobile devices.",
+        "Missing icons or visual aids in the rating and comment sections reduce user engagement.",
+        "The overall color contrast in some areas (e.g., footer and content text) does not meet accessibility standards, which may hinder readability for some users."
       ]
     }
   ]
