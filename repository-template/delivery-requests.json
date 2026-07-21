@@ -1,0 +1,30 @@
+{
+  "organization": "Enterprise Dev Corp",
+  "lastUpdated": "2026-07-21T00:00:00.000Z",
+  "requests": [
+    {
+      "id": "req_001",
+      "request": "Implement the onboarding dashboard from the linked Figma design",
+      "requester": "product.manager@company.com",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21"
+    },
+    {
+      "id": "req_002",
+      "request": "Create a Slack intake workflow for design-to-deployment delivery",
+      "requester": "engineering.lead@company.com",
+      "workstream": "Platform Automation",
+      "status": "approved",
+      "lastUpdatedAt": "2026-07-20"
+    },
+    {
+      "id": "req_003",
+      "request": "Prepare a stale design implementation draft for replacement",
+      "requester": "former.owner@company.com",
+      "workstream": "Design Systems",
+      "status": "draft",
+      "lastUpdatedAt": "2026-03-01"
+    }
+  ]
+}

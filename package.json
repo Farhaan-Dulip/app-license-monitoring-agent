@@ -1,7 +1,7 @@
 {
-  "name": "app-usage-monitor-agent",
+  "name": "ai-engineering-delivery-agent",
   "version": "1.0.0",
-  "description": "",
+  "description": "Slack-driven AI engineering delivery workflow agent using Mastra, MCP, GitHub, Linear, and Railway.",
   "main": "index.js",
   "scripts": {
     "build": "node ./node_modules/typescript/bin/tsc",

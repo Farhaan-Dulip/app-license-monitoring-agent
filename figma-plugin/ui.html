@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>
+      body {
+        margin: 0;
+        font-family: Inter, Arial, sans-serif;
+        color: #101820;
+        background: #f7efe2;
+      }
+
+      main {
+        padding: 20px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+
+      p {
+        margin: 0 0 18px;
+        color: #52606b;
+        line-height: 1.45;
+      }
+
+      label {
+        display: block;
+        margin: 14px 0 6px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #d8cfc0;
+        border-radius: 6px;
+        padding: 10px;
+        font: inherit;
+      }
+
+      button {
+        width: 100%;
+        margin-top: 18px;
+        border: 0;
+        border-radius: 6px;
+        background: #c94f3d;
+        color: #fff;
+        font-weight: 800;
+        padding: 12px;
+        cursor: pointer;
+      }
+
+      #status {
+        min-height: 42px;
+        margin-top: 14px;
+        color: #355e4b;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AI Delivery Agent</h1>
+      <p>Fetch a generated design spec from the agent and create live editable Figma nodes in this file.</p>
+
+      <label for="baseUrl">Agent Base URL</label>
+      <input id="baseUrl" placeholder="https://your-service.up.railway.app">
+
+      <label for="requestId">Request ID</label>
+      <input id="requestId" placeholder="latest">
+
+      <button id="create">Create Live Figma Design</button>
+      <p id="status"></p>
+    </main>
+
+    <script>
+      const baseUrl = document.getElementById('baseUrl');
+      const requestId = document.getElementById('requestId');
+      const status = document.getElementById('status');
+
+      document.getElementById('create').addEventListener('click', () => {
+        status.textContent = 'Creating Figma design...';
+        parent.postMessage({
+          pluginMessage: {
+            type: 'create-design',
+            baseUrl: baseUrl.value,
+            requestId: requestId.value || 'latest'
+          }
+        }, '*');
+      });
+
+      window.onmessage = (event) => {
+        const message = event.data.pluginMessage;
+        if (!message) {
+          return;
+        }
+        status.textContent = message.message;
+        status.style.color = message.type === 'error' ? '#c94f3d' : '#355e4b';
+      };
+    </script>
+  </body>
+</html>
