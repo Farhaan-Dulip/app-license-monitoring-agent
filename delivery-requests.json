@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T11:59:34.539Z",
+  "lastUpdated": "2026-07-21T12:27:22.450Z",
   "requests": [
     {
       "id": "req_001",
@@ -57,6 +57,72 @@
         "generated-app/src/App.jsx",
         "generated-app/src/App.css",
         "docs/design-to-react-req_004.md"
+      ]
+    },
+    {
+      "id": "req_005",
+      "request": "build me a feedback form which includes ratings and email along with text area to input comments",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/ember-sage-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/ember-sage-plugin-code.js",
+      "llmSummary": "Generated a responsive React restaurant landing page for Ember & Sage from the Figma design spec.",
+      "acceptanceCriteria": [
+        "Responsive restaurant landing page renders on mobile and desktop",
+        "Hero section includes brand name, cuisine positioning, and reservation CTA",
+        "Menu preview shows at least three featured dishes",
+        "Final page includes GitHub, Linear, Railway, and Figma traceability"
+      ],
+      "implementationPlan": [
+        "Create a Figma-ready frame specification for the landing page",
+        "Generate React component structure from the design spec",
+        "Write CSS for responsive layout, palette, spacing, and cards",
+        "Commit generated artifacts and delivery metadata through GitHub governance"
+      ],
+      "riskLevel": "low",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_005.md"
+      ]
+    },
+    {
+      "id": "req_006",
+      "request": "build me a feedback ui screen with ratings and email field and text area to input feedback",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/ember-sage-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/ember-sage-plugin-code.js",
+      "llmSummary": "Generated a responsive React restaurant landing page for Ember & Sage from the Figma design spec.",
+      "acceptanceCriteria": [
+        "Responsive restaurant landing page renders on mobile and desktop",
+        "Hero section includes brand name, cuisine positioning, and reservation CTA",
+        "Menu preview shows at least three featured dishes",
+        "Final page includes GitHub, Linear, Railway, and Figma traceability"
+      ],
+      "implementationPlan": [
+        "Create a Figma-ready frame specification for the landing page",
+        "Generate React component structure from the design spec",
+        "Write CSS for responsive layout, palette, spacing, and cards",
+        "Commit generated artifacts and delivery metadata through GitHub governance"
+      ],
+      "riskLevel": "low",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_006.md"
       ]
     }
   ]

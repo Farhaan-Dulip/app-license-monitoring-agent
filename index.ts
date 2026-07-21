@@ -975,13 +975,37 @@ async function runDeliveryAnalysis(generationContext: ReactGenerationResults): P
   );
 
   if (existingRequesterRecord) {
+    const refreshedRequestArray = database.requests.map((record) =>
+      record.id === existingRequesterRecord.id
+        ? {
+            ...record,
+            request: generationContext.requestedWork,
+            requester: generationContext.requester,
+            status: 'proposed',
+            lastUpdatedAt: new Date().toISOString().slice(0, 10),
+            figmaUrl: generationContext.figmaDesign.figmaUrl,
+            figmaDesignSpecPath: generationContext.figmaDesign.designSpecPath,
+            figmaPluginPayloadPath: generationContext.figmaDesign.pluginPayloadPath,
+            llmSummary: generationContext.reactGeneration.summary,
+            acceptanceCriteria: generationContext.designBrief.acceptanceCriteria,
+            implementationPlan: generationContext.designBrief.implementationPlan,
+            riskLevel: generationContext.designBrief.riskLevel,
+            generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path)
+          }
+        : record
+    );
+
     return {
       ...generationContext,
       previousOwner: existingRequesterRecord.requester,
       requestId: existingRequesterRecord.id,
       analysisStatus: 'updated_existing',
-      updatedRequestArray: database.requests,
-      database
+      updatedRequestArray: refreshedRequestArray,
+      database: {
+        ...database,
+        lastUpdated: new Date().toISOString(),
+        requests: refreshedRequestArray
+      }
     };
   }
 
