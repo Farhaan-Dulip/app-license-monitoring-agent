@@ -7,12 +7,12 @@ Figma design spec: figma-agent/ecofuture-design-spec.json
 Figma plugin payload: figma-agent/ecofuture-plugin-code.js
 
 ## LLM Summary
-A modern and inviting landing page for EcoFuture aimed at environmentally conscious individuals and organizations. The page features a structured layout with engaging sections that highlight the brand's mission, initiatives, and opportunities for involvement, all while ensuring responsiveness and aesthetic elegance.
+A modern, responsive landing page for EcoFuture, designed to engage environmentally conscious individuals and organizations through compelling content and visuals, encouraging participation and support for environmental initiatives.
 
 ## UI Quality Review
-Score: not reviewed
+Score: 77
 Passed: false
-- No UI quality findings were recorded.
+- The landing page design lacks some modern UI features and needs improved layout coherence. Several elements lack adequate accessibility standards and responsiveness.
 
 ## Acceptance Criteria
 - Design is modern
