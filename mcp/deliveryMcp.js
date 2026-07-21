@@ -7,6 +7,18 @@ import { z } from 'zod';
 import { deliveryDatabaseSchema } from '../schemas/schemas.js';
 import { DELIVERY_DATABASE_PATH, resolveGeneratedArtifactPath } from '../runtime/runtime.js';
 let mcpClientPromise;
+// Ensures fresh deployments have a valid delivery database before MCP reads it.
+function ensureDeliveryDatabaseFile() {
+    if (fs.existsSync(DELIVERY_DATABASE_PATH)) {
+        return;
+    }
+    const initialDatabase = {
+        organization: 'AI Engineering Delivery',
+        lastUpdated: new Date().toISOString(),
+        requests: []
+    };
+    fs.writeFileSync(DELIVERY_DATABASE_PATH, `${JSON.stringify(initialDatabase, null, 2)}\n`, 'utf-8');
+}
 // Returns the singleton MCP client so every workflow step reuses the same in-process MCP connection.
 async function getDeliveryMcpClient() {
     if (!mcpClientPromise) {
@@ -23,14 +35,17 @@ async function initializeDeliveryMcpClient() {
     server.registerTool('read_delivery_database', {
         title: 'Read Delivery Database',
         description: 'Reads the root delivery-requests.json workflow database.'
-    }, async () => ({
-        content: [
-            {
-                type: 'text',
-                text: fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')
-            }
-        ]
-    }));
+    }, async () => {
+        ensureDeliveryDatabaseFile();
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')
+                }
+            ]
+        };
+    });
     server.registerTool('write_delivery_database', {
         title: 'Write Delivery Database',
         description: 'Writes the AI engineering delivery workflow database back to root delivery-requests.json.',
@@ -39,6 +54,7 @@ async function initializeDeliveryMcpClient() {
         }
     }, async ({ databaseJson }) => {
         const parsedDatabase = deliveryDatabaseSchema.parse(JSON.parse(databaseJson));
+        fs.mkdirSync(path.dirname(DELIVERY_DATABASE_PATH), { recursive: true });
         fs.writeFileSync(DELIVERY_DATABASE_PATH, `${JSON.stringify(parsedDatabase, null, 2)}\n`, 'utf-8');
         return {
             content: [

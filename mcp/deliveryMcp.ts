@@ -10,6 +10,21 @@ import type { DeliveryDatabase, GeneratedFile, McpTextContent } from '../types/t
 
 let mcpClientPromise: Promise<Client> | undefined;
 
+// Ensures fresh deployments have a valid delivery database before MCP reads it.
+function ensureDeliveryDatabaseFile(): void {
+  if (fs.existsSync(DELIVERY_DATABASE_PATH)) {
+    return;
+  }
+
+  const initialDatabase: DeliveryDatabase = {
+    organization: 'AI Engineering Delivery',
+    lastUpdated: new Date().toISOString(),
+    requests: []
+  };
+
+  fs.writeFileSync(DELIVERY_DATABASE_PATH, `${JSON.stringify(initialDatabase, null, 2)}\n`, 'utf-8');
+}
+
 // Returns the singleton MCP client so every workflow step reuses the same in-process MCP connection.
 async function getDeliveryMcpClient(): Promise<Client> {
   if (!mcpClientPromise) {
@@ -31,14 +46,18 @@ async function initializeDeliveryMcpClient(): Promise<Client> {
       title: 'Read Delivery Database',
       description: 'Reads the root delivery-requests.json workflow database.'
     },
-    async () => ({
-      content: [
-        {
-          type: 'text',
-          text: fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')
-        }
-      ]
-    })
+    async () => {
+      ensureDeliveryDatabaseFile();
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')
+          }
+        ]
+      };
+    }
   );
 
   server.registerTool(
@@ -52,6 +71,7 @@ async function initializeDeliveryMcpClient(): Promise<Client> {
     },
     async ({ databaseJson }) => {
       const parsedDatabase = deliveryDatabaseSchema.parse(JSON.parse(databaseJson));
+      fs.mkdirSync(path.dirname(DELIVERY_DATABASE_PATH), { recursive: true });
       fs.writeFileSync(DELIVERY_DATABASE_PATH, `${JSON.stringify(parsedDatabase, null, 2)}\n`, 'utf-8');
 
       return {
