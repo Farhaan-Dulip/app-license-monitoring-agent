@@ -1,60 +1,27 @@
+import React from 'react';
 import './App.css';
 
-const dishes = [
-  "Charred tomato burrata",
-  "Saffron seafood risotto",
-  "Wood-fired herb chicken"
-];
-
-export default function App() {
-  return (
-    <main className="page-shell">
-      <nav className="nav">
-        <strong>Ember & Sage</strong>
-        <div>
-          <a href="#menu">Menu</a>
-          <a href="#story">Story</a>
-          <a href="#reserve">Reserve</a>
+const FeedbackForm = () => {
+    return (
+        <div className="feedback-form-container">
+            <h1>We Value Your Feedback!</h1>
+            <form>
+                <label htmlFor="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required />
+                <label htmlFor="rating">Rating:</label>
+                <div className="rating-container">
+                    <input type="radio" id="star5" name="rating" value="5" /><label htmlFor="star5">★</label>
+                    <input type="radio" id="star4" name="rating" value="4" /><label htmlFor="star4">★</label>
+                    <input type="radio" id="star3" name="rating" value="3" /><label htmlFor="star3">★</label>
+                    <input type="radio" id="star2" name="rating" value="2" /><label htmlFor="star2">★</label>
+                    <input type="radio" id="star1" name="rating" value="1" /><label htmlFor="star1">★</label>
+                </div>
+                <label htmlFor="comments">Comments:</label>
+                <textarea id="comments" name="comments" rows="4" placeholder="Share your thoughts..." required></textarea>
+                <button type="submit">Submit Feedback</button>
+            </form>
         </div>
-      </nav>
+    );
+};
 
-      <section className="hero">
-        <p className="eyebrow">restaurant landing page</p>
-        <h1>Ember & Sage</h1>
-        <p className="lede">warm, refined, appetizing, modern dining for local diners looking for a polished dinner reservation experience.</p>
-        <a className="cta" href="#reserve">Reserve a Table</a>
-      </section>
-
-      <section id="menu" className="menu-grid">
-        {dishes.map((dish) => (
-          <article key={dish}>
-            <p>Signature</p>
-            <h2>{dish}</h2>
-            <span>Seasonal ingredients, composed for a memorable table experience.</span>
-          </article>
-        ))}
-      </section>
-
-      <section id="story" className="story">
-        <div>
-          <p className="eyebrow">Design Sections</p>
-          <h2>Figma-created structure converted to React</h2>
-        </div>
-        <div className="section-list">
-          <span>Navigation</span>
-              <span>Hero reservation CTA</span>
-              <span>Signature dishes</span>
-              <span>Chef story</span>
-              <span>Private dining CTA</span>
-              <span>Footer</span>
-        </div>
-      </section>
-
-      <section id="reserve" className="reservation">
-        <h2>Ready for dinner?</h2>
-        <p>Reserve a table for a warm evening of thoughtful food and polished service.</p>
-        <button>Reserve a Table</button>
-      </section>
-    </main>
-  );
-}
+export default FeedbackForm;
