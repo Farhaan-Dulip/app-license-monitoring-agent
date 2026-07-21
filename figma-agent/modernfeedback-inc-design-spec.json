@@ -1,0 +1,96 @@
+{
+  "brief": {
+    "pageType": "Feedback Form",
+    "brandName": "ModernFeedback Inc.",
+    "audience": "Customers and Users of the Product",
+    "mood": "Professional and Friendly",
+    "colorPalette": [
+      "#4A90E2",
+      "#50E3C2",
+      "#F5A623",
+      "#D0021B",
+      "#7ED321"
+    ],
+    "typography": "Roboto, sans-serif",
+    "sections": [
+      "Email Input",
+      "Rating Selection",
+      "Comment Section"
+    ],
+    "primaryCta": "Submit Feedback",
+    "acceptanceCriteria": [
+      "Form is visually appealing",
+      "functional",
+      "and captures user input accurately."
+    ],
+    "implementationPlan": [
+      "1. Create Figma design for feedback form. 2. Convert design into React component with necessary state management."
+    ],
+    "riskLevel": "medium"
+  },
+  "designSystem": {
+    "palette": [
+      "#4A90E2",
+      "#50E3C2",
+      "#F5A623",
+      "#D0021B",
+      "#7ED321"
+    ],
+    "typography": "Roboto, sans-serif",
+    "spacingScale": [
+      "8px",
+      "12px",
+      "16px",
+      "24px",
+      "32px",
+      "48px",
+      "72px",
+      "96px"
+    ],
+    "cornerRadius": [
+      "8px",
+      "12px",
+      "20px",
+      "28px"
+    ],
+    "elevation": [
+      "subtle card shadow",
+      "hero media shadow",
+      "sticky nav blur"
+    ]
+  },
+  "layoutBlueprint": {
+    "desktop": "1440px responsive experience with clear navigation, high-impact hero, intentional section hierarchy, supporting content blocks, conversion-focused panels, and a polished footer.",
+    "tablet": "Selective two-column layouts that collapse gracefully while preserving hierarchy and spacing rhythm.",
+    "mobile": "Single-column flow with readable typography, full-width CTAs, stacked cards, and no content overlap.",
+    "qualityBar": "The generated React implementation should feel production-ready and domain-appropriate, not a wireframe or plain form."
+  },
+  "interactionNotes": [
+    "Primary CTA needs hover, active, and focus-visible states.",
+    "Inputs/selects/buttons must be custom styled if the design includes a form.",
+    "Cards should have intentional spacing, hierarchy, and responsive dimensions.",
+    "Avoid browser-default controls and sparse one-panel layouts."
+  ],
+  "nodes": [
+    {
+      "name": "Landing Page Frame",
+      "type": "frame",
+      "description": "Feedback Form desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections."
+    },
+    {
+      "name": "Email Input",
+      "type": "section",
+      "description": "High-fidelity section for Email Input. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Rating Selection",
+      "type": "section",
+      "description": "High-fidelity section for Rating Selection. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Comment Section",
+      "type": "section",
+      "description": "High-fidelity section for Comment Section. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    }
+  ]
+}
