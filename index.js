@@ -219,7 +219,8 @@ async function createGeneratedAppViteServer() {
         plugins: [react()],
         server: {
             middlewareMode: true,
-            allowedHosts: true
+            allowedHosts: true,
+            hmr: false
         }
     });
 }
