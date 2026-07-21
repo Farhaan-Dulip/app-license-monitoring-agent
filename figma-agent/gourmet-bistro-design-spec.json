@@ -1,0 +1,114 @@
+{
+  "brief": {
+    "pageType": "landing-page",
+    "brandName": "Gourmet Bistro",
+    "audience": "Food enthusiasts and families looking for a dining experience",
+    "mood": "Welcoming and Elegant",
+    "colorPalette": [
+      "#DAA520",
+      "#8B4513",
+      "#FFF8DC",
+      "#DC143C",
+      "#FFFFFF"
+    ],
+    "typography": "Helvetica, Arial, sans-serif",
+    "sections": [
+      "Reserve Your Table",
+      "Menu Highlights",
+      "Ambiance and Decor",
+      "Meet Our Chef",
+      "Hours and Location",
+      "Private Dining and Events"
+    ],
+    "primaryCta": "Book a Reservation",
+    "acceptanceCriteria": [
+      "User can easily navigate through sections",
+      "complete a reservation form",
+      "and view menu highlights. The design must be visually appealing and responsive."
+    ],
+    "implementationPlan": [
+      "1. Create design mockups in Figma. 2. Review and iterate based on feedback. 3. Convert designs to React components ensuring responsiveness. 4. Conduct user testing to validate functionality."
+    ],
+    "riskLevel": "medium"
+  },
+  "designSystem": {
+    "palette": [
+      "#DAA520",
+      "#8B4513",
+      "#FFF8DC",
+      "#DC143C",
+      "#FFFFFF"
+    ],
+    "typography": "Helvetica, Arial, sans-serif",
+    "spacingScale": [
+      "8px",
+      "12px",
+      "16px",
+      "24px",
+      "32px",
+      "48px",
+      "72px",
+      "96px"
+    ],
+    "cornerRadius": [
+      "8px",
+      "12px",
+      "20px",
+      "28px"
+    ],
+    "elevation": [
+      "subtle card shadow",
+      "hero media shadow",
+      "sticky nav blur"
+    ]
+  },
+  "layoutBlueprint": {
+    "desktop": "1440px marketing page with sticky nav, full first-viewport hero, asymmetric content/media composition, menu card grid, story band, reservation or conversion panel, and footer.",
+    "tablet": "Two-column sections collapse selectively while maintaining strong hierarchy and generous spacing.",
+    "mobile": "Single-column flow with compact navigation, readable hero headline, full-width CTAs, stacked cards, and no text overlap.",
+    "qualityBar": "The generated React implementation should feel like a finished product landing page, not a wireframe or plain form."
+  },
+  "interactionNotes": [
+    "Primary CTA needs hover, active, and focus-visible states.",
+    "Inputs/selects/buttons must be custom styled if the design includes a form.",
+    "Cards should have intentional spacing, hierarchy, and responsive dimensions.",
+    "Avoid browser-default controls and sparse one-panel layouts."
+  ],
+  "nodes": [
+    {
+      "name": "Landing Page Frame",
+      "type": "frame",
+      "description": "landing-page desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections."
+    },
+    {
+      "name": "Reserve Your Table",
+      "type": "section",
+      "description": "High-fidelity section for Reserve Your Table. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Menu Highlights",
+      "type": "section",
+      "description": "High-fidelity section for Menu Highlights. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Ambiance and Decor",
+      "type": "section",
+      "description": "High-fidelity section for Ambiance and Decor. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Meet Our Chef",
+      "type": "section",
+      "description": "High-fidelity section for Meet Our Chef. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Hours and Location",
+      "type": "section",
+      "description": "High-fidelity section for Hours and Location. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Private Dining and Events",
+      "type": "section",
+      "description": "High-fidelity section for Private Dining and Events. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    }
+  ]
+}
