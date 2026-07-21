@@ -211,12 +211,15 @@ function buildGeneratedUiUrl(results) {
 // Creates a Vite middleware server for the generated React app so previews use App.jsx and App.css.
 async function createGeneratedAppViteServer() {
     const { createServer } = await import('vite');
+    const react = (await import('@vitejs/plugin-react')).default;
     return createServer({
         root: GENERATED_APP_DIR,
         appType: 'custom',
         logLevel: 'error',
+        plugins: [react()],
         server: {
-            middlewareMode: true
+            middlewareMode: true,
+            allowedHosts: true
         }
     });
 }
@@ -613,7 +616,10 @@ async function generateReactFromFigmaDesign(input) {
                 devDependencies: {}
             }, null, 2)
         },
-        { path: 'generated-app/index.html', content: '<div id="root"></div><script type="module" src="/src/main.jsx"></script>\n' },
+        {
+            path: 'generated-app/index.html',
+            content: '<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8" />\n  <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n  <title>Generated UI</title>\n</head>\n<body>\n  <div id="root"></div>\n  <script type="module" src="/src/main.jsx"></script>\n</body>\n</html>\n'
+        },
         { path: 'generated-app/src/main.jsx', content: "import React from 'react';\nimport { createRoot } from 'react-dom/client';\nimport App from './App.jsx';\n\ncreateRoot(document.getElementById('root')).render(<App />);\n" }
     ];
     const prompt = [
@@ -1615,7 +1621,7 @@ async function renderGeneratedViteUi(viteServer, requestUrl, requestId) {
         throw new Error(`Generated Vite app index.html was not found for request ${deliveryRecord.id}.`);
     }
     const sourceHtml = fs.readFileSync(indexPath, 'utf-8');
-    const htmlWithMetadata = sourceHtml.replace('<div id="root"></div>', `<div id="root" data-request-id="${escapeHtml(deliveryRecord.id)}" data-request="${escapeHtml(deliveryRecord.request)}"></div>`);
+    const htmlWithMetadata = sourceHtml.replace(/<div\s+id=["']root["']\s*><\/div>/i, `<div id="root" data-request-id="${escapeHtml(deliveryRecord.id)}" data-request="${escapeHtml(deliveryRecord.request)}"></div>`);
     return viteServer.transformIndexHtml(requestUrl, htmlWithMetadata);
 }
 // Generates the Railway-hosted approval page for a specific AI engineering delivery request.
