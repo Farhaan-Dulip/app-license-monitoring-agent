@@ -1378,8 +1378,13 @@ async function persistGeneratedArtifacts(results: AnalysisResults): Promise<Anal
     ...results.reactGeneration.generatedFiles.map((file) => `- ${file.path}`)
   ].join('\n');
 
+  // Generated app source files are kept in the feature branch PR and are not written to host runtime storage.
+  const nonGeneratedAppArtifacts = results.reactGeneration.generatedFiles.filter(
+    (file) => !file.path.replace(/\\/g, '/').startsWith('generated-app/')
+  );
+
   await Promise.all([
-    ...results.reactGeneration.generatedFiles.map((file) => writeGeneratedArtifactViaMcp(file)),
+    ...nonGeneratedAppArtifacts.map((file) => writeGeneratedArtifactViaMcp(file)),
     writeGeneratedArtifactViaMcp({ path: planPath, content: planContent })
   ]);
 
@@ -1721,6 +1726,10 @@ async function syncEvidenceToGitHubBranch(
     `[Governance] Track AI delivery request for ${results.requester}`
   );
 
+  const generatedFileMap = new Map(
+    results.reactGeneration.generatedFiles.map((file) => [file.path.replace(/\\/g, '/'), file.content])
+  );
+
   const localArtifactPaths = new Set([
     results.figmaDesign.designSpecPath,
     results.figmaDesign.pluginPayloadPath,
@@ -1729,8 +1738,17 @@ async function syncEvidenceToGitHubBranch(
   ]);
 
   for (const artifactPath of localArtifactPaths) {
-    const absoluteArtifactPath = resolveGeneratedArtifactPath(artifactPath);
-    if (!fs.existsSync(absoluteArtifactPath)) {
+    const normalizedPath = artifactPath.replace(/\\/g, '/');
+    const generatedContent = generatedFileMap.get(normalizedPath);
+    const content = generatedContent ?? (() => {
+      const absoluteArtifactPath = resolveGeneratedArtifactPath(normalizedPath);
+      if (!fs.existsSync(absoluteArtifactPath)) {
+        return null;
+      }
+      return fs.readFileSync(absoluteArtifactPath, 'utf-8');
+    })();
+
+    if (!content) {
       console.warn(`Skipping missing generated artifact for GitHub PR: ${artifactPath}`);
       continue;
     }
@@ -1740,8 +1758,8 @@ async function syncEvidenceToGitHubBranch(
       owner,
       repo,
       branchName,
-      artifactPath,
-      fs.readFileSync(absoluteArtifactPath, 'utf-8'),
+      normalizedPath,
+      content,
       `[Generated Artifact] Add ${artifactPath} for ${results.requestId}`
     );
   }
@@ -2448,23 +2466,6 @@ function getDeliveryRecordForRequest(requestId: string): DeliveryRecord {
   return deliveryRecord;
 }
 
-// Serves the generated React app through Vite so the preview uses App.jsx, App.css, and Vite transforms.
-async function renderGeneratedViteUi(viteServer: { transformIndexHtml: (url: string, html: string) => Promise<string> }, requestUrl: string, requestId: string): Promise<string> {
-  const deliveryRecord = getDeliveryRecordForRequest(requestId);
-  const indexPath = path.join(GENERATED_APP_DIR, 'index.html');
-  if (!fs.existsSync(indexPath)) {
-    throw new Error(`Generated Vite app index.html was not found for request ${deliveryRecord.id}.`);
-  }
-
-  const sourceHtml = fs.readFileSync(indexPath, 'utf-8');
-  const htmlWithMetadata = sourceHtml.replace(
-    /<div\s+id=["']root["']\s*><\/div>/i,
-    `<div id="root" data-request-id="${escapeHtml(deliveryRecord.id)}" data-request="${escapeHtml(deliveryRecord.request)}"></div>`
-  );
-
-  return viteServer.transformIndexHtml(requestUrl, htmlWithMetadata);
-}
-
 // Generates the Railway-hosted approval page for a specific AI engineering delivery request.
 function renderApprovalUi(requestId: string, request: Request): string {
   const database = deliveryDatabaseSchema.parse(JSON.parse(fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')));
@@ -2657,7 +2658,6 @@ async function startServer() {
   const app = express();
   const port = Number(process.env.PORT ?? 3000);
   const shouldUseExactPort = Boolean(process.env.PORT);
-  const generatedAppViteServer = await createGeneratedAppViteServer();
 
   app.use(
     express.urlencoded({
@@ -2721,11 +2721,9 @@ async function startServer() {
   });
 
   // Generated UI endpoint serves the live Railway page returned to Slack for each prompt.
-  app.get('/generated/:requestId', async (request, response) => {
+  app.get('/generated/:requestId', (request, response) => {
     try {
-      response.status(200).type('html').send(
-        await renderGeneratedViteUi(generatedAppViteServer, request.originalUrl, request.params.requestId)
-      );
+      response.status(200).type('html').send(renderGeneratedUi(request.params.requestId));
     } catch (error: unknown) {
       sendJson(response, 404, {
         status: 'not_found',
@@ -2806,9 +2804,6 @@ async function startServer() {
       console.error('❌ Slack endpoint runtime failure:', error);
     }
   });
-
-  // Vite middleware is mounted after API routes so Slack/GitHub/Linear endpoints are never intercepted.
-  app.use(generatedAppViteServer.middlewares);
 
   // Binds the Express app to a port and auto-increments locally if the default port is already in use.
   const listen = (targetPort: number) => {
