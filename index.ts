@@ -62,9 +62,15 @@ type ReactGenerationResult = {
 };
 
 type UiQualityReview = {
+  uiQualityScore: number;
+  codeQualityScore: number;
+  requirementCoverageScore: number;
   score: number;
   passed: boolean;
   findings: string[];
+  codeFindings: string[];
+  requirementFindings: string[];
+  blockingIssues: string[];
   regenerationPrompt: string;
 };
 
@@ -98,6 +104,12 @@ type DeliveryDatabase = {
 type ExecutionContext = {
   requester: string;
   requestedWork: string;
+  branchName?: string | null | undefined;
+  prOwner?: string | null | undefined;
+  prRepo?: string | null | undefined;
+  ticketId?: string | null | undefined;
+  ticketUrl?: string | null | undefined;
+  governanceNotes?: string[] | undefined;
 };
 
 type DesignBriefResults = ExecutionContext & {
@@ -235,9 +247,15 @@ const reactGenerationResultSchema = z.object({
 });
 
 const uiQualityReviewSchema = z.object({
+  uiQualityScore: z.number().min(0).max(100),
+  codeQualityScore: z.number().min(0).max(100),
+  requirementCoverageScore: z.number().min(0).max(100),
   score: z.number().min(0).max(100),
   passed: z.boolean(),
   findings: z.array(z.string()),
+  codeFindings: z.array(z.string()),
+  requirementFindings: z.array(z.string()),
+  blockingIssues: z.array(z.string()),
   regenerationPrompt: z.string()
 });
 
@@ -249,7 +267,13 @@ const deliveryDatabaseSchema = z.object({
 
 const executionContextSchema = z.object({
   requester: z.string().min(1),
-  requestedWork: z.string().min(1)
+  requestedWork: z.string().min(1),
+  branchName: z.string().nullable().optional(),
+  prOwner: z.string().nullable().optional(),
+  prRepo: z.string().nullable().optional(),
+  ticketId: z.string().nullable().optional(),
+  ticketUrl: z.string().nullable().optional(),
+  governanceNotes: z.array(z.string()).optional()
 });
 
 const designBriefResultsSchema = executionContextSchema.extend({
@@ -405,6 +429,21 @@ function buildApprovalUiUrl(
 // Builds the Railway-hosted URL for the generated UI output created from the Slack prompt.
 function buildGeneratedUiUrl(results: MutationResults): string {
   return `${getPublicBaseUrl()}/generated/${encodeURIComponent(results.requestId)}`;
+}
+
+// Triggers Railway deployment through a deploy hook when configured.
+async function triggerRailwayDeployment(): Promise<string> {
+  const deployHookUrl = optionalEnv('RAILWAY_DEPLOY_HOOK_URL');
+  if (!deployHookUrl) {
+    return 'Railway deploy hook not configured; deployment will follow repository integration settings.';
+  }
+
+  const response = await fetch(deployHookUrl, { method: 'POST' });
+  if (!response.ok) {
+    throw new Error(`Railway deploy hook failed with ${response.status}: ${await response.text()}`);
+  }
+
+  return 'Railway deployment hook triggered.';
 }
 
 // Creates a Vite middleware server for the generated React app so previews use App.jsx and App.css.
@@ -947,37 +986,57 @@ async function generateReactFromFigmaDesign(input: FigmaDesignResults, reviewerF
 // Normalizes UI reviewer output so the workflow can handle minor LLM response-shape drift.
 function normalizeUiQualityReview(rawReview: unknown): UiQualityReview {
   const rawRecord = rawReview && typeof rawReview === 'object' ? rawReview as Record<string, unknown> : {};
-  const numericScore = Number(rawRecord.score ?? rawRecord.qualityScore ?? rawRecord.uiQualityScore ?? 0);
+  const numericScore = Number(rawRecord.score ?? rawRecord.qualityScore ?? rawRecord.overallScore ?? 0);
   const score = Math.max(0, Math.min(100, Number.isFinite(numericScore) ? numericScore : 0));
+  const uiQualityScoreRaw = Number(rawRecord.uiQualityScore ?? score);
+  const codeQualityScoreRaw = Number(rawRecord.codeQualityScore ?? score);
+  const requirementCoverageScoreRaw = Number(rawRecord.requirementCoverageScore ?? rawRecord.businessRequirementScore ?? score);
+  const uiQualityScore = Math.max(0, Math.min(100, Number.isFinite(uiQualityScoreRaw) ? uiQualityScoreRaw : score));
+  const codeQualityScore = Math.max(0, Math.min(100, Number.isFinite(codeQualityScoreRaw) ? codeQualityScoreRaw : score));
+  const requirementCoverageScore = Math.max(0, Math.min(100, Number.isFinite(requirementCoverageScoreRaw) ? requirementCoverageScoreRaw : score));
   const findings = valueToTextArray(rawRecord.findings ?? rawRecord.issues ?? rawRecord.recommendations, [
-    'UI review response was incomplete; regenerate with stronger visual hierarchy, spacing, responsive layout, and polished styling.'
+    'Review response was incomplete; regenerate with stronger UI polish, cleaner React/CSS architecture, and tighter requirement coverage.'
   ]);
+  const codeFindings = valueToTextArray(rawRecord.codeFindings ?? rawRecord.bestPracticeFindings ?? rawRecord.codeIssues, []);
+  const requirementFindings = valueToTextArray(rawRecord.requirementFindings ?? rawRecord.businessRequirementFindings ?? rawRecord.requirementGaps, []);
+  const blockingIssues = valueToTextArray(rawRecord.blockingIssues ?? rawRecord.blockers, []);
   const regenerationPrompt = valueToText(
     rawRecord.regenerationPrompt ?? rawRecord.feedback ?? rawRecord.revisionPrompt,
-    findings.join('\n')
+    [...findings, ...codeFindings, ...requirementFindings, ...blockingIssues].join('\n')
   );
-  const passed = typeof rawRecord.passed === 'boolean' ? rawRecord.passed : score >= 82;
+  const passed = typeof rawRecord.passed === 'boolean'
+    ? rawRecord.passed
+    : score >= 82 && uiQualityScore >= 80 && codeQualityScore >= 80 && requirementCoverageScore >= 80 && blockingIssues.length === 0;
 
   return uiQualityReviewSchema.parse({
+    uiQualityScore,
+    codeQualityScore,
+    requirementCoverageScore,
     score,
-    passed: passed && score >= 82,
+    passed: passed && score >= 82 && blockingIssues.length === 0,
     findings,
+    codeFindings,
+    requirementFindings,
+    blockingIssues,
     regenerationPrompt
   });
 }
 
-// Reviews generated React/CSS for visual quality, prompt fit, responsiveness, and production polish.
+// Reviews generated React/CSS for visual quality, code quality, and business requirement coverage.
 async function reviewReactUiQuality(input: ReactGenerationResults): Promise<UiQualityReview> {
   const appJsx = input.reactGeneration.generatedFiles.find((file) => file.path === 'generated-app/src/App.jsx')?.content ?? '';
   const appCss = input.reactGeneration.generatedFiles.find((file) => file.path === 'generated-app/src/App.css')?.content ?? '';
   const prompt = [
-    'Review this generated React/Vite UI as a strict senior product designer.',
-    'Return JSON only with keys: score, passed, findings, regenerationPrompt.',
-    'score must be a number from 0 to 100.',
-    'passed must only be true when score is at least 82 and the UI clearly satisfies the Slack prompt.',
-    'Findings must be specific and actionable for regenerating React/CSS.',
-    'Reject plain centered forms, sparse layouts, browser-default controls, weak color systems, poor hierarchy, missing responsive behavior, and mismatches with the prompt.',
-    'For domain-specific experiences, require expected domain sections, clear conversion flow, and polished responsive styling.',
+    'Review this generated React/Vite implementation as a principal frontend reviewer.',
+    'Return JSON only with keys: uiQualityScore, codeQualityScore, requirementCoverageScore, score, passed, findings, codeFindings, requirementFindings, blockingIssues, regenerationPrompt.',
+    'Each score must be a number from 0 to 100.',
+    'passed must only be true when score is at least 82, all sub-scores are at least 80, and there are no blockingIssues.',
+    'findings should summarize overall quality gaps.',
+    'codeFindings must focus on React/CSS correctness, maintainability, accessibility, responsiveness, and best practices.',
+    'requirementFindings must focus on whether business intent from the Slack prompt and acceptance criteria is fully covered.',
+    'blockingIssues should only contain severe release blockers.',
+    'regenerationPrompt must be directly actionable for regenerating improved App.jsx and App.css.',
+    'Reject plain centered forms, sparse layouts, browser-default controls, weak hierarchy, code smells, and requirement mismatch.',
     '',
     `Original Slack prompt: ${input.requestedWork}`,
     '',
@@ -1488,10 +1547,8 @@ async function upsertGitHubFile(
   );
 }
 
-// Creates a GitHub branch, commits generated React/Figma/database evidence, and opens a PR.
-async function createGitHubEvidencePr(
-  results: MutationResults
-): Promise<{ prUrl: string; prNumber: number; prOwner: string; prRepo: string; branchName: string } | null> {
+// Creates a GitHub branch from the configured base branch so generated artifacts can be committed before PR review.
+async function createGitHubEvidenceBranch(requester: string): Promise<{ branchName: string; prOwner: string; prRepo: string } | null> {
   const octokit = getOctokit();
   const owner = optionalEnv('GITHUB_REPO_OWNER');
   const repo = optionalEnv('GITHUB_REPO_NAME');
@@ -1502,21 +1559,157 @@ async function createGitHubEvidencePr(
   }
 
   const timestamp = Math.floor(Date.now() / 1000);
-  const branchName = `delivery/request-${results.requester.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}`;
+  const branchName = `delivery/request-${requester.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}`;
+
+  const { data: baseRef } = await octokit.git.getRef({ owner, repo, ref: `heads/${baseBranch}` });
+
+  try {
+    await octokit.git.createRef({
+      owner,
+      repo,
+      ref: `refs/heads/${branchName}`,
+      sha: baseRef.object.sha
+    });
+  } catch (error: unknown) {
+    if (!(typeof error === 'object' && error !== null && 'status' in error && error.status === 422)) {
+      throw error;
+    }
+  }
+
+  return {
+    branchName,
+    prOwner: owner,
+    prRepo: repo
+  };
+}
+
+// Resolves LINEAR_TEAM_ID from UUID, key, or team name, with fallback to the first available team.
+async function resolveLinearTeamId(linear: LinearClient): Promise<string> {
+  const configuredTeamId = optionalEnv('LINEAR_TEAM_ID');
+  let teamId = configuredTeamId;
+
+  if (teamId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(teamId)) {
+    const teams = await linear.teams();
+    const matchingTeam = teams.nodes.find(
+      (team) =>
+        team.key.toLowerCase() === teamId?.toLowerCase() ||
+        team.name.toLowerCase() === teamId?.toLowerCase()
+    );
+
+    if (!matchingTeam) {
+      throw new Error(`LINEAR_TEAM_ID must be a UUID, team key, or team name. Could not resolve "${teamId}".`);
+    }
+
+    teamId = matchingTeam.id;
+  }
+
+  if (!teamId) {
+    const teams = await linear.teams();
+    teamId = teams.nodes[0]?.id;
+  }
+
+  if (!teamId) {
+    throw new Error('No Linear team was found. Set LINEAR_TEAM_ID or create a Linear team.');
+  }
+
+  return teamId;
+}
+
+// Creates a Linear intake ticket immediately after Slack command processing starts.
+async function createLinearIntakeTicket(context: ExecutionContext): Promise<{ ticketId: string; ticketUrl: string } | null> {
+  const linear = getLinearClient();
+  if (!linear) {
+    return null;
+  }
+
+  const teamId = await resolveLinearTeamId(linear);
+
+  const issue = await linear.createIssue({
+    teamId,
+    title: `[Intake] AI delivery request for ${context.requester}`,
+    description: [
+      'Intake ticket created before branch/design/PR generation.',
+      '',
+      `Requester: ${context.requester}`,
+      `Requested work: ${context.requestedWork}`,
+      '',
+      'This ticket will be updated/closed when PR review passes and merge completes.'
+    ].join('\n'),
+    priority: 1
+  });
+
+  const issueDetails = await issue.issue;
+  return issueDetails?.url ? { ticketId: issueDetails.id, ticketUrl: issueDetails.url } : null;
+}
+
+// Provisions governance artifacts early in the flow: first ticket, then branch.
+async function provisionGovernanceIntake(context: ExecutionContext): Promise<ExecutionContext> {
+  const notes: string[] = [...(context.governanceNotes ?? [])];
+  let ticketId = context.ticketId ?? null;
+  let ticketUrl = context.ticketUrl ?? null;
+  let branchName = context.branchName ?? null;
+  let prOwner = context.prOwner ?? null;
+  let prRepo = context.prRepo ?? null;
+
+  try {
+    if (!ticketId) {
+      const ticket = await createLinearIntakeTicket(context);
+      if (ticket) {
+        ticketId = ticket.ticketId;
+        ticketUrl = ticket.ticketUrl;
+        notes.push('Linear intake ticket created.');
+      } else {
+        notes.push('Linear intake skipped: missing LINEAR_API_KEY.');
+      }
+    }
+  } catch (error: unknown) {
+    notes.push(`Linear intake failed: ${getErrorMessage(error)}`);
+  }
+
+  try {
+    if (!branchName) {
+      const branch = await createGitHubEvidenceBranch(context.requester);
+      if (branch) {
+        branchName = branch.branchName;
+        prOwner = branch.prOwner;
+        prRepo = branch.prRepo;
+        notes.push('GitHub branch created from develop/base branch.');
+      } else {
+        notes.push('GitHub branch creation skipped: missing GitHub configuration.');
+      }
+    }
+  } catch (error: unknown) {
+    notes.push(`GitHub branch creation failed: ${getErrorMessage(error)}`);
+  }
+
+  return {
+    ...context,
+    ticketId,
+    ticketUrl,
+    branchName,
+    prOwner,
+    prRepo,
+    governanceNotes: notes
+  };
+}
+
+// Commits current database + generated artifacts to the existing governance branch.
+async function syncEvidenceToGitHubBranch(
+  results: MutationResults,
+  owner: string,
+  repo: string,
+  branchName: string
+): Promise<void> {
+  const octokit = getOctokit();
+  if (!octokit) {
+    throw new Error('GITHUB_TOKEN is not configured; cannot sync branch evidence.');
+  }
+
   const updatedData = {
     organization: results.database.organization,
     lastUpdated: results.database.lastUpdated,
     requests: results.updatedRequestArray
   };
-
-  const { data: baseRef } = await octokit.git.getRef({ owner, repo, ref: `heads/${baseBranch}` });
-
-  await octokit.git.createRef({
-    owner,
-    repo,
-    ref: `refs/heads/${branchName}`,
-    sha: baseRef.object.sha
-  });
 
   await upsertGitHubFile(
     octokit,
@@ -1552,6 +1745,39 @@ async function createGitHubEvidencePr(
       `[Generated Artifact] Add ${artifactPath} for ${results.requestId}`
     );
   }
+}
+
+// Creates a PR if one does not exist yet for this branch; otherwise returns the existing open PR.
+async function ensureEvidencePullRequest(
+  results: MutationResults,
+  owner: string,
+  repo: string,
+  branchName: string
+): Promise<{ prUrl: string; prNumber: number }> {
+  const octokit = getOctokit();
+  if (!octokit) {
+    throw new Error('GITHUB_TOKEN is not configured; cannot create PR evidence.');
+  }
+
+  const baseBranch = optionalEnv('GITHUB_BASE_BRANCH') ?? 'develop';
+  const { data: existing } = await octokit.pulls.list({
+    owner,
+    repo,
+    state: 'open',
+    head: `${owner}:${branchName}`,
+    base: baseBranch
+  });
+
+  if (existing.length > 0) {
+    const existingPr = existing[0];
+    if (!existingPr) {
+      throw new Error('GitHub returned an empty pull request list unexpectedly.');
+    }
+    return {
+      prUrl: existingPr.html_url,
+      prNumber: existingPr.number
+    };
+  }
 
   const { data: pullRequest } = await octokit.pulls.create({
     owner,
@@ -1568,101 +1794,102 @@ async function createGitHubEvidencePr(
       `- Figma design spec: ${results.figmaDesign.designSpecPath}`,
       `- Figma plugin payload: ${results.figmaDesign.pluginPayloadPath}`,
       `- React component: ${results.reactGeneration.componentName}`,
-      `- UI quality score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
+      `- Overall quality score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
       `- Generated files: ${results.reactGeneration.generatedFiles.map((file) => file.path).join(', ')}`
     ].join('\n')
   });
 
   return {
     prUrl: pullRequest.html_url,
-    prNumber: pullRequest.number,
-    prOwner: owner,
-    prRepo: repo,
-    branchName
+    prNumber: pullRequest.number
   };
 }
 
-// Creates a Linear governance ticket and links it to the AI delivery request and optional GitHub PR.
-async function createLinearGovernanceTicket(
-  results: MutationResults,
-  prUrl: string | null
-): Promise<{ ticketId: string; ticketUrl: string } | null> {
-  const linear = getLinearClient();
-  if (!linear) {
-    return null;
+// Posts review status comments to the generated evidence PR.
+async function postGitHubPrReviewComment(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  title: string,
+  bodyLines: string[]
+): Promise<void> {
+  const octokit = getOctokit();
+  if (!octokit) {
+    return;
   }
 
-  const configuredTeamId = optionalEnv('LINEAR_TEAM_ID');
-  let teamId = configuredTeamId;
-
-  if (teamId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(teamId)) {
-    const teams = await linear.teams();
-    const matchingTeam = teams.nodes.find(
-      (team) =>
-        team.key.toLowerCase() === teamId?.toLowerCase() ||
-        team.name.toLowerCase() === teamId?.toLowerCase()
-    );
-
-    if (!matchingTeam) {
-      throw new Error(`LINEAR_TEAM_ID must be a UUID, team key, or team name. Could not resolve "${teamId}".`);
-    }
-
-    teamId = matchingTeam.id;
-  }
-
-  if (!teamId) {
-    const teams = await linear.teams();
-    teamId = teams.nodes[0]?.id;
-  }
-
-  if (!teamId) {
-    throw new Error('No Linear team was found. Set LINEAR_TEAM_ID or create a Linear team.');
-  }
-
-  const issue = await linear.createIssue({
-    teamId,
-    title: `[Governance] AI delivery request for ${results.requester}`,
-    description: [
-      'Automated compliance ticket for Slack-triggered AI engineering delivery.',
-      '',
-      `Requester: ${results.requester}`,
-      `Requested work: ${results.requestedWork}`,
-      `Analysis status: ${results.analysisStatus}`,
-      `Request ID: ${results.requestId}`,
-      `Risk level: ${results.designBrief.riskLevel}`,
-      `Figma design spec: ${results.figmaDesign.designSpecPath}`,
-      `Figma plugin payload: ${results.figmaDesign.pluginPayloadPath}`,
-      `React component: ${results.reactGeneration.componentName}`,
-      `UI quality score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
-      `Generated files: ${results.reactGeneration.generatedFiles.map((file) => file.path).join(', ')}`,
-      '',
-      'Acceptance criteria:',
-      ...results.designBrief.acceptanceCriteria.map((item) => `- ${item}`),
-      '',
-      'Implementation plan:',
-      ...results.designBrief.implementationPlan.map((item) => `- ${item}`),
-      '',
-      prUrl ? `GitHub evidence PR: ${prUrl}` : 'GitHub evidence PR: not created'
-    ].join('\n'),
-    priority: 1
+  await octokit.issues.createComment({
+    owner,
+    repo,
+    issue_number: prNumber,
+    body: [
+      `### ${title}`,
+      ...bodyLines
+    ].join('\n')
   });
-
-  const issueDetails = await issue.issue;
-  return issueDetails?.url ? { ticketId: issueDetails.id, ticketUrl: issueDetails.url } : null;
 }
 
-// Coordinates optional GitHub PR creation, Linear ticket creation, approval URL generation, and status notes.
+// Applies regenerated outputs back into the delivery database and writes files so the same PR branch can be updated.
+async function persistReviewIteration(results: MutationResults, review: UiQualityReview, reactGeneration: ReactGenerationResult): Promise<MutationResults> {
+  const updatedRequestArray = results.updatedRequestArray.map((record) =>
+    record.id === results.requestId
+      ? {
+          ...record,
+          llmSummary: reactGeneration.summary,
+          generatedPreviewHtml: reactGeneration.previewHtml,
+          generatedFiles: reactGeneration.generatedFiles.map((file) => file.path),
+          uiQualityScore: review.score,
+          uiQualityFindings: [
+            ...review.findings,
+            ...review.codeFindings,
+            ...review.requirementFindings,
+            ...review.blockingIssues
+          ]
+        }
+      : record
+  );
+
+  const updatedDatabase: DeliveryDatabase = {
+    ...results.database,
+    lastUpdated: new Date().toISOString(),
+    requests: updatedRequestArray
+  };
+
+  const persistedArtifacts = await persistGeneratedArtifacts({
+    ...results,
+    reactGeneration,
+    uiQualityReview: review,
+    updatedRequestArray,
+    database: updatedDatabase
+  });
+  const mutation = await writeDeliveryDatabaseViaMcp(persistedArtifacts.database);
+
+  return {
+    ...results,
+    reactGeneration,
+    uiQualityReview: review,
+    updatedRequestArray: persistedArtifacts.updatedRequestArray,
+    database: persistedArtifacts.database,
+    databasePath: mutation.path,
+    recordsUpdated: mutation.recordsUpdated
+  };
+}
+
+// Coordinates PR creation, review-loop regeneration/comments, auto-merge-on-pass, and ticket closure.
 async function createGovernanceEvidence(results: MutationResults): Promise<GovernanceResults> {
-  const notes: string[] = [];
+  const notes: string[] = [...(results.governanceNotes ?? [])];
   let prUrl: string | null = null;
   let prNumber: number | null = null;
-  let prOwner: string | null = null;
-  let prRepo: string | null = null;
-  let branchName: string | null = null;
-  let ticketId: string | null = null;
-  let ticketUrl: string | null = null;
+  let prOwner: string | null = results.prOwner ?? null;
+  let prRepo: string | null = results.prRepo ?? null;
+  let branchName: string | null = results.branchName ?? null;
+  let ticketId: string | null = results.ticketId ?? null;
+  let ticketUrl: string | null = results.ticketUrl ?? null;
   const hasGitHubEnv = Boolean(optionalEnv('GITHUB_TOKEN') && optionalEnv('GITHUB_REPO_OWNER') && optionalEnv('GITHUB_REPO_NAME'));
-  const hasLinearEnv = Boolean(optionalEnv('LINEAR_API_KEY'));
+  const maxAttempts = Math.max(1, Number(optionalEnv('REVIEW_MAX_ATTEMPTS') ?? '3'));
+  let workingResults: MutationResults = results;
+  let finalReview: UiQualityReview;
+  let mergedToBase = false;
 
   console.log('Governance env check:', {
     hasGitHubToken: Boolean(optionalEnv('GITHUB_TOKEN')),
@@ -1670,52 +1897,126 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
     hasGitHubRepo: Boolean(optionalEnv('GITHUB_REPO_NAME')),
     hasLinearApiKey: Boolean(optionalEnv('LINEAR_API_KEY')),
     hasLinearTeamId: Boolean(optionalEnv('LINEAR_TEAM_ID')),
-    analysisStatus: results.analysisStatus
+    analysisStatus: results.analysisStatus,
+    preProvisionedBranch: branchName,
+    preProvisionedTicket: ticketId
   });
 
   try {
-    const pr = await createGitHubEvidencePr(results);
-    if (pr) {
-      prUrl = pr.prUrl;
-      prNumber = pr.prNumber;
-      prOwner = pr.prOwner;
-      prRepo = pr.prRepo;
-      branchName = pr.branchName;
-      notes.push('GitHub evidence PR created.');
-    } else if (!hasGitHubEnv) {
-      notes.push('GitHub skipped: missing GITHUB_TOKEN, GITHUB_REPO_OWNER, or GITHUB_REPO_NAME in this runtime.');
+    if (hasGitHubEnv) {
+      if (!branchName || !prOwner || !prRepo) {
+        const branch = await createGitHubEvidenceBranch(results.requester);
+        if (branch) {
+          branchName = branch.branchName;
+          prOwner = branch.prOwner;
+          prRepo = branch.prRepo;
+          notes.push('GitHub branch created during governance fallback.');
+        }
+      }
+
+      if (branchName && prOwner && prRepo) {
+        await syncEvidenceToGitHubBranch(workingResults, prOwner, prRepo, branchName);
+        const pr = await ensureEvidencePullRequest(workingResults, prOwner, prRepo, branchName);
+        prUrl = pr.prUrl;
+        prNumber = pr.prNumber;
+        notes.push('GitHub evidence PR raised for generated artifacts.');
+      } else {
+        notes.push('GitHub skipped: branch metadata unavailable.');
+      }
     } else {
-      notes.push('GitHub skipped: no PR was returned.');
+      notes.push('GitHub skipped: missing GITHUB_TOKEN, GITHUB_REPO_OWNER, or GITHUB_REPO_NAME in this runtime.');
     }
   } catch (error: unknown) {
     notes.push(`GitHub evidence PR failed: ${getErrorMessage(error)}`);
     console.error('GitHub governance evidence failure:', error);
   }
 
-  try {
-    const ticket = await createLinearGovernanceTicket(results, prUrl);
-    if (ticket) {
-      ticketId = ticket.ticketId;
-      ticketUrl = ticket.ticketUrl;
-      notes.push('Linear governance ticket created.');
-    } else if (!hasLinearEnv) {
-      notes.push('Linear skipped: missing LINEAR_API_KEY in this runtime.');
-    } else {
-      notes.push('Linear skipped: no ticket URL was returned.');
+  finalReview = workingResults.uiQualityReview ?? await reviewReactUiQuality(workingResults);
+
+  if (prNumber && prOwner && prRepo) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      if (finalReview.passed) {
+        await postGitHubPrReviewComment(prOwner, prRepo, prNumber, 'Code Review Passed', [
+          `Overall score: ${finalReview.score}`,
+          `UI score: ${finalReview.uiQualityScore}`,
+          `Code score: ${finalReview.codeQualityScore}`,
+          `Requirement score: ${finalReview.requirementCoverageScore}`,
+          'Result: ready to merge.'
+        ]);
+        break;
+      }
+
+      await postGitHubPrReviewComment(prOwner, prRepo, prNumber, `Code Review Attempt ${attempt} Failed`, [
+        `Overall score: ${finalReview.score}`,
+        `UI score: ${finalReview.uiQualityScore}`,
+        `Code score: ${finalReview.codeQualityScore}`,
+        `Requirement score: ${finalReview.requirementCoverageScore}`,
+        '',
+        'Findings:',
+        ...finalReview.findings.map((item) => `- ${item}`),
+        '',
+        'Code findings:',
+        ...(finalReview.codeFindings.length > 0 ? finalReview.codeFindings : ['- None supplied by reviewer']).map((item) => `- ${item}`),
+        '',
+        'Requirement findings:',
+        ...(finalReview.requirementFindings.length > 0 ? finalReview.requirementFindings : ['- None supplied by reviewer']).map((item) => `- ${item}`),
+        '',
+        'Blocking issues:',
+        ...(finalReview.blockingIssues.length > 0 ? finalReview.blockingIssues : ['- None supplied by reviewer']).map((item) => `- ${item}`),
+        '',
+        'Regeneration prompt:',
+        finalReview.regenerationPrompt
+      ]);
+
+      if (attempt === maxAttempts) {
+        notes.push(`Code review failed after ${maxAttempts} attempt(s); PR left open for manual changes.`);
+        break;
+      }
+
+      const regenerated = await generateReactFromFigmaDesign(workingResults, finalReview.regenerationPrompt);
+      const regeneratedReview = await reviewReactUiQuality(regenerated);
+      workingResults = await persistReviewIteration(workingResults, regeneratedReview, regenerated.reactGeneration);
+      finalReview = regeneratedReview;
+      await syncEvidenceToGitHubBranch(workingResults, prOwner, prRepo, branchName ?? workingResults.branchName ?? '');
+      notes.push(`Regenerated UI and pushed review iteration ${attempt + 1} to the same PR branch.`);
     }
-  } catch (error: unknown) {
-    notes.push(`Linear governance ticket failed: ${getErrorMessage(error)}`);
-    console.error('Linear governance ticket failure:', error);
+
+    if (finalReview.passed) {
+      try {
+        const mergeResult = await updateGitHubPrFromApproval(prOwner, prRepo, prNumber, 'approved', workingResults.requestId);
+        notes.push(mergeResult);
+        mergedToBase = true;
+        notes.push(await triggerRailwayDeployment());
+      } catch (error: unknown) {
+        notes.push(`GitHub merge failed after passing review: ${getErrorMessage(error)}`);
+      }
+    }
+  } else {
+    notes.push('PR review loop skipped because PR metadata was unavailable.');
+  }
+
+  if (ticketId && mergedToBase) {
+    try {
+      const ticketUpdate = await updateLinearTicketFromApproval(ticketId, 'approved', workingResults.requestId);
+      notes.push(ticketUpdate);
+    } catch (error: unknown) {
+      notes.push(`Linear ticket close failed: ${getErrorMessage(error)}`);
+    }
   }
 
   const createdCount = [prUrl, ticketUrl].filter(Boolean).length;
-  const governanceStatus = createdCount === 2 ? 'created' : createdCount === 0 ? 'skipped' : 'partial';
+  const governanceStatus = mergedToBase
+    ? 'created'
+    : createdCount === 0
+      ? 'skipped'
+      : 'partial';
   const githubPr = prNumber && prOwner && prRepo ? { prNumber, prOwner, prRepo } : null;
-  const approvalUiUrl = buildApprovalUiUrl(results, ticketId, githubPr);
-  const generatedUiUrl = buildGeneratedUiUrl(results);
+  const approvalUiUrl = buildApprovalUiUrl(workingResults, ticketId, githubPr);
+  const generatedUiUrl = buildGeneratedUiUrl(workingResults);
 
   return {
-    ...results,
+    ...workingResults,
+    uiQualityReview: finalReview,
     prUrl,
     prNumber,
     prOwner,
@@ -1733,6 +2034,18 @@ async function createGovernanceEvidence(results: MutationResults): Promise<Gover
 // ---------------------------------------------------------
 // NODE 5: Mastra Multi-Step Orchestration State Machine
 // ---------------------------------------------------------
+// Defines the governance intake step that creates a ticket and branch before design/code generation starts.
+const governanceIntakeStep = createStep({
+  id: 'provisionGovernanceIntake',
+  description: 'Creates the Linear intake ticket and GitHub branch before UI generation.',
+  inputSchema: executionContextSchema,
+  outputSchema: executionContextSchema,
+  execute: async ({ inputData }) => {
+    console.log('⏳ Running Node 1: Governance Intake Agent...');
+    return provisionGovernanceIntake(inputData);
+  }
+});
+
 // Defines the LLM prompt-understanding agent that expands the Slack request into a design brief.
 const designBriefStep = createStep({
   id: 'generateDesignBriefWithLlm',
@@ -1740,7 +2053,7 @@ const designBriefStep = createStep({
   inputSchema: executionContextSchema,
   outputSchema: designBriefResultsSchema,
   execute: async ({ inputData }) => {
-    console.log('⏳ Running Node 1: LLM Prompt Understanding Agent...');
+    console.log('⏳ Running Node 2: LLM Prompt Understanding Agent...');
     return generateDesignBriefWithLlm(inputData);
   }
 });
@@ -1752,7 +2065,7 @@ const figmaDesignStep = createStep({
   inputSchema: designBriefResultsSchema,
   outputSchema: figmaDesignResultsSchema,
   execute: async ({ inputData }) => {
-    console.log('⏳ Running Node 2: Figma Design Agent...');
+    console.log('⏳ Running Node 3: Figma Design Agent...');
     return createFigmaDesignFromBrief(inputData);
   }
 });
@@ -1764,20 +2077,8 @@ const reactGenerationStep = createStep({
   inputSchema: figmaDesignResultsSchema,
   outputSchema: reactGenerationResultsSchema,
   execute: async ({ inputData }) => {
-    console.log('⏳ Running Node 3: React Code Generator Agent...');
+    console.log('⏳ Running Node 4: React Code Generator Agent...');
     return generateReactFromFigmaDesign(inputData);
-  }
-});
-
-// Defines the UI quality review agent that critiques generated React/CSS and triggers one regeneration when needed.
-const uiQualityReviewStep = createStep({
-  id: 'reviewAndRegenerateReactUi',
-  description: 'Reviews generated UI quality and regenerates React/CSS once if the quality score is too low.',
-  inputSchema: reactGenerationResultsSchema,
-  outputSchema: reactGenerationResultsSchema,
-  execute: async ({ inputData }) => {
-    console.log('Running Node 4: UI Quality Review Agent...');
-    return reviewAndRegenerateReactUi(inputData);
   }
 });
 
@@ -1788,7 +2089,7 @@ const analysisStep = createStep({
   inputSchema: reactGenerationResultsSchema,
   outputSchema: analysisResultsSchema,
   execute: async ({ inputData }) => {
-    console.log('⏳ Running Node 4: Delivery Record Agent...');
+    console.log('⏳ Running Node 5: Delivery Record Agent...');
     return runDeliveryAnalysis(inputData);
   }
 });
@@ -1800,7 +2101,7 @@ const mcpArtifactStep = createStep({
   inputSchema: analysisResultsSchema,
   outputSchema: analysisResultsSchema,
   execute: async ({ inputData }) => {
-    console.log('⏳ Running Node 5: MCP Generated Artifact Mutation...');
+    console.log('⏳ Running Node 6: MCP Generated Artifact Mutation...');
     return persistGeneratedArtifacts(inputData);
   }
 });
@@ -1812,7 +2113,7 @@ const mcpMutationStep = createStep({
   inputSchema: analysisResultsSchema,
   outputSchema: mutationResultsSchema,
   execute: async ({ inputData }) => {
-    console.log('⏳ Running Node 6: MCP Delivery Database Mutation...');
+    console.log('⏳ Running Node 7: MCP Delivery Database Mutation...');
     const mutation = await writeDeliveryDatabaseViaMcp(inputData.database);
     return {
       ...inputData,
@@ -1825,11 +2126,11 @@ const mcpMutationStep = createStep({
 // Defines the Mastra notification step that sends the completed workflow result back to Slack.
 const slackDispatchStep = createStep({
   id: 'dispatchSlackInteractiveCard',
-  description: 'Sends the final Block Kit approval card to Slack.',
+  description: 'Sends the final Block Kit update to Slack after PR review/merge and ticket closure.',
   inputSchema: governanceResultsSchema,
   outputSchema: workflowResultsSchema,
   execute: async ({ inputData }) => {
-    console.log('⏳ Running Node 8: Slack Bot Agent Dispatch...');
+    console.log('⏳ Running Node 9: Slack Bot Agent Dispatch...');
     await dispatchSlackInteractiveCard(inputData);
     console.log('🚀 [Outbound Notification] Slack interactive layout card dispatched successfully.');
 
@@ -1863,11 +2164,11 @@ const slackDispatchStep = createStep({
 // Defines the Mastra governance step that creates GitHub and Linear records before approval.
 const governanceStep = createStep({
   id: 'createGovernanceEvidence',
-  description: 'Creates optional GitHub PR and Linear ticket evidence for the delivery request.',
+  description: 'Raises PR, runs code/business/UI review loop, merges on pass, and closes the ticket.',
   inputSchema: mutationResultsSchema,
   outputSchema: governanceResultsSchema,
   execute: async ({ inputData }) => {
-    console.log('⏳ Running Node 7: GitHub + Linear Governance Agents...');
+    console.log('⏳ Running Node 8: GitHub + Linear Governance Agents...');
     return createGovernanceEvidence(inputData);
   }
 });
@@ -1879,10 +2180,10 @@ const engineeringDeliveryWorkflow = createWorkflow({
   inputSchema: executionContextSchema,
   outputSchema: workflowResultsSchema
 })
+  .then(governanceIntakeStep)
   .then(designBriefStep)
   .then(figmaDesignStep)
   .then(reactGenerationStep)
-  .then(uiQualityReviewStep)
   .then(analysisStep)
   .then(mcpArtifactStep)
   .then(mcpMutationStep)
