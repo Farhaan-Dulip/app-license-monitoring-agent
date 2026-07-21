@@ -1817,7 +1817,6 @@ async function startServer() {
     app.get('/health', (_request, response) => {
         sendJson(response, 200, { status: 'ok' });
     });
-    app.use(generatedAppViteServer.middlewares);
     // Figma plugin endpoints expose generated design specs to a live Figma plugin session.
     app.options('/api/figma/session/:requestId', (_request, response) => {
         response.set('Access-Control-Allow-Origin', '*');
@@ -1907,6 +1906,8 @@ async function startServer() {
             console.error('❌ Slack endpoint runtime failure:', error);
         }
     });
+    // Vite middleware is mounted after API routes so Slack/GitHub/Linear endpoints are never intercepted.
+    app.use(generatedAppViteServer.middlewares);
     // Binds the Express app to a port and auto-increments locally if the default port is already in use.
     const listen = (targetPort) => {
         const server = app.listen(targetPort, () => {
