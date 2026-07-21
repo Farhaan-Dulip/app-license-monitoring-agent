@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T12:33:40.904Z",
+  "lastUpdated": "2026-07-21T13:13:21.229Z",
   "requests": [
     {
       "id": "req_001",
@@ -189,6 +189,71 @@
         "generated-app/src/App.jsx",
         "generated-app/src/App.css",
         "docs/design-to-react-req_008.md"
+      ]
+    },
+    {
+      "id": "req_009",
+      "request": "build me a feedback form that includes email input, ratings and text area to enter comments.",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/gourmet-delights-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/gourmet-delights-plugin-code.js",
+      "designBrief": {
+        "pageType": "Landing Page",
+        "brandName": "Gourmet Delights",
+        "audience": "Food enthusiasts and potential customers",
+        "mood": "Inviting and modern",
+        "colorPalette": [
+          "#FF6347",
+          "#FFD700",
+          "#FFFFFF",
+          "#000000",
+          "#2E8B57"
+        ],
+        "typography": "Arial, sans-serif",
+        "sections": [
+          "Header with restaurant logo and navigation links",
+          "Hero section with a warm welcome and call to action",
+          "Feedback form including email input, ratings, and comments area",
+          "Testimonials from satisfied customers",
+          "Footer with contact information and social media links"
+        ],
+        "primaryCta": "Submit Feedback",
+        "acceptanceCriteria": [
+          "Feedback form must include email input",
+          "a rating system (1-5 stars)",
+          "and a text area for comments",
+          "all visually appealing and user-friendly."
+        ],
+        "implementationPlan": [
+          "Create Figma design first",
+          "then convert to React components including form validation."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "A responsive feedback form component for Gourmet Delights includes email input, star ratings, and a comments text area, designed to be visually appealing and user-friendly.",
+      "acceptanceCriteria": [
+        "Feedback form must include email input",
+        "a rating system (1-5 stars)",
+        "and a text area for comments",
+        "all visually appealing and user-friendly."
+      ],
+      "implementationPlan": [
+        "Create Figma design first",
+        "then convert to React components including form validation."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Feedback Form</title>\n    <link rel=\"stylesheet\" href=\"App.css\">\n</head>\n<body>\n    <div class=\"feedback-container\">\n        <h1>Gourmet Delights Feedback</h1>\n        <form>\n            <label for=\"email\">Email:</label>\n            <input type=\"email\" id=\"email\" name=\"email\" required />\n            <label for=\"rating\">Rating:</label>\n            <div class=\"rating\">\n                <input type=\"radio\" id=\"star1\" name=\"rating\" value=\"5\" /><label for=\"star1\">★</label>\n                <input type=\"radio\" id=\"star2\" name=\"rating\" value=\"4\" /><label for=\"star2\">★</label>\n                <input type=\"radio\" id=\"star3\" name=\"rating\" value=\"3\" /><label for=\"star3\">★</label>\n                <input type=\"radio\" id=\"star4\" name=\"rating\" value=\"2\" /><label for=\"star4\">★</label>\n                <input type=\"radio\" id=\"star5\" name=\"rating\" value=\"1\" /><label for=\"star5\">★</label>\n            </div>\n            <label for=\"comments\">Comments:</label>\n            <textarea id=\"comments\" name=\"comments\" rows=\"4\"></textarea>\n            <button type=\"submit\">Submit Feedback</button>\n        </form>\n    </div>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_009.md"
       ]
     }
   ]
