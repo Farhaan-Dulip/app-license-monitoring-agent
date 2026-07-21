@@ -1,26 +1,46 @@
+import React from 'react';
 import './App.css';
 
-const FeedbackForm = () => {
+const App = () => {
     return (
-        <div className="feedback-container">
-            <h1>Gourmet Delights Feedback</h1>
-            <form>
-                <label htmlFor="email">Email:</label>
-                <input type="email" id="email" name="email" required />
-                <label htmlFor="rating">Rating:</label>
-                <div className="rating">
-                    <input type="radio" id="star1" name="rating" value="5" /><label htmlFor="star1">★</label>
-                    <input type="radio" id="star2" name="rating" value="4" /><label htmlFor="star2">★</label>
-                    <input type="radio" id="star3" name="rating" value="3" /><label htmlFor="star3">★</label>
-                    <input type="radio" id="star4" name="rating" value="2" /><label htmlFor="star4">★</label>
-                    <input type="radio" id="star5" name="rating" value="1" /><label htmlFor="star5">★</label>
-                </div>
-                <label htmlFor="comments">Comments:</label>
-                <textarea id="comments" name="comments" rows="4"></textarea>
-                <button type="submit">Submit Feedback</button>
-            </form>
+        <div>
+            <header>
+                <h1>Culinary Delights</h1>
+                <h2>Your Destination for Flavor</h2>
+            </header>
+            <div className="hero"></div>
+            <div className="container">
+                <section className="about section">
+                    <h2>About Us</h2>
+                    <p>We bring you the best culinary experiences with our handcrafted meals.</p>
+                </section>
+                <section className="menu section">
+                    <h2>Menu Overview</h2>
+                    <div className="card">
+                        <h3>Signature Dish</h3>
+                        <p>A taste sensation just for you!</p>
+                    </div>
+                </section>
+                <section className="testimonials section">
+                    <h2>What Our Customers Say</h2>
+                    <div className="card">
+                        <p>&quot;The best dining experience in town!&quot;</p>
+                        <p>- Happy Customer</p>
+                    </div>
+                </section>
+                <section className="contact section">
+                    <h2>Contact Information</h2>
+                    <p>Email: info@culinarydelights.com</p>
+                    <p>Phone: (123) 456-7890</p>
+                </section>
+                <section className="location section">
+                    <h2>Find Us Here</h2>
+                    <p>Location map integration coming soon!</p>
+                </section>
+                <button>Make a Reservation</button>
+            </div>
         </div>
     );
 };
 
-export default FeedbackForm;
+export default App;
