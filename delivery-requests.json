@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T13:13:21.229Z",
+  "lastUpdated": "2026-07-21T14:55:38.984Z",
   "requests": [
     {
       "id": "req_001",
@@ -254,6 +254,62 @@
         "generated-app/src/App.jsx",
         "generated-app/src/App.css",
         "docs/design-to-react-req_009.md"
+      ]
+    },
+    {
+      "id": "req_010",
+      "request": "build a feedback form inlcuding input field for email and ratings and text area for comments",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/deli-delight-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/deli-delight-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing-page",
+        "brandName": "Deli Delight",
+        "audience": "Food enthusiasts and local diners",
+        "mood": "Inviting and friendly",
+        "colorPalette": [
+          "#FFB74D",
+          "#8D6E63",
+          "#6D4C41",
+          "#FFAB40",
+          "#FFF59D"
+        ],
+        "typography": "Montserrat, sans-serif",
+        "sections": [
+          "Welcome to Deli Delight - Your favorite sandwich spot",
+          "Check out our menu with the freshest ingredients",
+          "We value your feedback to improve our services",
+          "Special offers and promotions for our customers"
+        ],
+        "primaryCta": "Leave Feedback",
+        "acceptanceCriteria": [
+          "Feedback form must be functional with validation for email and ratings. User comments should be submitted successfully."
+        ],
+        "implementationPlan": [
+          "1. Design the feedback form in Figma. 2. Convert the design elements to React components. 3. Implement email validation and rating system. 4. Connect the form submission to backend services."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "This implementation provides a refined feedback form experience on a landing page for 'Deli Delight', including sections that encourage customer interaction, structured feedback input, and modern styling.",
+      "acceptanceCriteria": [
+        "Feedback form must be functional with validation for email and ratings. User comments should be submitted successfully."
+      ],
+      "implementationPlan": [
+        "1. Design the feedback form in Figma. 2. Convert the design elements to React components. 3. Implement email validation and rating system. 4. Connect the form submission to backend services."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Deli Delight Feedback</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            font-family: 'Montserrat', sans-serif;\n            background-color: #FFF59D;\n            color: #6D4C41;\n        }\n        .container {\n            max-width: 800px;\n            margin: 0 auto;\n            padding: 20px;\n        }\n        h1, h2 {\n            margin-bottom: 20px;\n        }\n        .section {\n            margin-bottom: 40px;\n        }\n        .feedback-form {\n            background-color: white;\n            padding: 20px;\n            border-radius: 8px;\n            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);\n        }\n        .form-group {\n            margin-bottom: 15px;\n        }\n        label {\n            display: block;\n            margin-bottom: 5px;\n            font-weight: bold;\n        }\n        input[type=\"email\"], textarea {\n            width: 100%;\n            padding: 10px;\n            border: 1px solid #8D6E63;\n            border-radius: 4px;\n            transition: border-color 0.3s;\n        }\n        input[type=\"email\"]:focus, textarea:focus {\n            border-color: #FFB74D;\n            outline: none;\n        }\n        .rating {\n            display: flex;\n            gap: 10px;\n        }\n        .rating input {\n            display: none;\n        }\n        .rating label {\n            cursor: pointer;\n            font-size: 24px;\n        }\n        .rating label:hover, .rating input:checked + label {\n            color: #FFAB40;\n        }\n        button {\n            background-color: #FFB74D;\n            color: white;\n            border: none;\n            padding: 10px 15px;\n            border-radius: 5px;\n            cursor: pointer;\n            transition: background-color 0.3s;\n        }\n        button:hover {\n            background-color: #FFAB40;\n        }\n        @media (max-width: 600px) {\n            .container {\n                padding: 10px;\n            }\n        }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <h1>Welcome to Deli Delight - Your Favorite Sandwich Spot</h1>\n        <h2>We value your feedback to improve our services</h2>\n        <div class=\"section\">\n            <p>Check out our menu with the freshest ingredients. Special offers and promotions for our customers await!</p>\n        </div>\n        <form class=\"feedback-form\">\n            <div class=\"form-group\">\n                <label for=\"email\">Email Address</label>\n                <input type=\"email\" id=\"email\" name=\"email\" required placeholder=\"you@example.com\">\n            </div>\n            <div class=\"form-group\">\n                <label>Rate your experience:</label>\n                <div class=\"rating\">\n                    <input type=\"radio\" name=\"rating\" id=\"star1\" value=\"1\"><label for=\"star1\">★</label>\n                    <input type=\"radio\" name=\"rating\" id=\"star2\" value=\"2\"><label for=\"star2\">★</label>\n                    <input type=\"radio\" name=\"rating\" id=\"star3\" value=\"3\"><label for=\"star3\">★</label>\n                    <input type=\"radio\" name=\"rating\" id=\"star4\" value=\"4\"><label for=\"star4\">★</label>\n                    <input type=\"radio\" name=\"rating\" id=\"star5\" value=\"5\"><label for=\"star5\">★</label>\n                </div>\n            </div>\n            <div class=\"form-group\">\n                <label for=\"comments\">Comments</label>\n                <textarea id=\"comments\" name=\"comments\" rows=\"4\" placeholder=\"Write your comments here...\"></textarea>\n            </div>\n            <button type=\"submit\">Leave Feedback</button>\n        </form>\n    </div>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_010.md"
       ]
     }
   ]
