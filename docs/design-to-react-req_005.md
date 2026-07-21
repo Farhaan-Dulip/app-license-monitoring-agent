@@ -3,8 +3,8 @@
 Requester: farhandulip05
 Prompt: build me a feedback form which includes ratings and email along with text area to input comments
 Risk: low
-Figma design spec: figma-agent/ember-sage-design-spec.json
-Figma plugin payload: figma-agent/ember-sage-plugin-code.js
+Figma design spec: generated-artifacts/figma/ember-sage-design-spec.json
+Figma plugin payload: generated-artifacts/figma/ember-sage-plugin-code.js
 
 ## LLM Summary
 Generated a responsive React restaurant landing page for Ember & Sage from the Figma design spec.

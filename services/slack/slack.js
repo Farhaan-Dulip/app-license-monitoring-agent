@@ -29,10 +29,18 @@ export async function dispatchSlackInteractiveCard(results) {
     const webhookUrl = requiredEnv('SLACK_WEBHOOK_URL');
     const generatedFileList = results.reactGeneration.generatedFiles.map((file) => `\`${file.path}\``).join(', ');
     const figmaPluginSessionUrl = `${getPublicBaseUrl()}/api/figma/session/${encodeURIComponent(results.requestId)}`;
-    const fallbackActionUrl = results.prUrl ?? results.generatedUiUrl;
+    const fallbackActionUrl = results.releaseReady
+        ? results.generatedUiUrl
+        : results.prUrl ?? results.ticketUrl ?? results.generatedUiUrl;
     const releaseStatusLine = results.releaseReady
         ? `*Generated UI:* <${results.generatedUiUrl}|Open generated page>`
-        : '*Generated UI:* Pending merge/deployment. Review PR status below.';
+        : '*Generated UI:* Not released yet. Review failed or merge/deployment is still pending.';
+    const railwayLine = results.releaseReady
+        ? `*Railway Generated UI:* <${results.generatedUiUrl}|Open generated page>`
+        : '*Railway Generated UI:* Not published because the delivery has not passed governance.';
+    const reviewLine = results.uiQualityReview
+        ? `*UI Review Agent:* Score ${results.uiQualityReview.score} / 100 (${results.uiQualityReview.passed ? 'passed' : 'did not pass'})`
+        : '*UI Review Agent:* Not reviewed';
     const governanceLines = [
         releaseStatusLine,
         results.prUrl ? `*GitHub Evidence PR:* <${results.prUrl}|Review PR>` : '*GitHub Evidence PR:* Not created',
@@ -44,7 +52,7 @@ export async function dispatchSlackInteractiveCard(results) {
         blocks: [
             {
                 type: 'header',
-                text: { type: 'plain_text', text: 'Generated UI Ready' }
+                text: { type: 'plain_text', text: results.releaseReady ? 'Generated UI Ready' : 'Generated UI Needs Review' }
             },
             {
                 type: 'section',
@@ -57,7 +65,7 @@ export async function dispatchSlackInteractiveCard(results) {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*Figma Design Agent:* \`${results.figmaDesign.designSpecPath}\` + \`${results.figmaDesign.pluginPayloadPath}\`\n*Live Figma Plugin Session:* <${figmaPluginSessionUrl}|Fetch design payload>\n*React Code Generator:* ${results.reactGeneration.summary}\n*UI Review Agent:* Score ${results.uiQualityReview?.score ?? 'not reviewed'} / 100\n*Generated React Files:* ${generatedFileList}`
+                    text: `*Figma Design Agent:* \`${results.figmaDesign.designSpecPath}\` + \`${results.figmaDesign.pluginPayloadPath}\`\n*Live Figma Plugin Session:* <${figmaPluginSessionUrl}|Fetch design payload>\n*React Code Generator:* ${results.reactGeneration.summary}\n${reviewLine}\n*Generated React Files:* ${generatedFileList}`
                 }
             },
             {
@@ -67,7 +75,7 @@ export async function dispatchSlackInteractiveCard(results) {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*Railway Generated UI:* <${results.generatedUiUrl}|Open generated page>\n*Database Mutation:* \`${results.databasePath}\`\n*Records Tracked:* ${results.recordsUpdated}\n${governanceLines.join('\n')}\n*Delivery Mode:* *AI-assisted engineering workflow*`
+                    text: `${railwayLine}\n*Database Mutation:* \`${results.databasePath}\`\n*Records Tracked:* ${results.recordsUpdated}\n${governanceLines.join('\n')}\n*Delivery Mode:* *AI-assisted engineering workflow*`
                 }
             },
             {

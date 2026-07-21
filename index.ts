@@ -11,9 +11,7 @@ import {
   figmaDesignResultsSchema,
   governanceResultsSchema,
   mutationResultsSchema,
-  reactGenerationResultSchema,
   reactGenerationResultsSchema,
-  uiQualityReviewSchema,
   workflowResultsSchema
 } from './schemas/schemas.js';
 import type {
@@ -23,8 +21,6 @@ import type {
   DesignBrief,
   DesignBriefResults,
   ExecutionContext,
-  FigmaDesignResults,
-  GeneratedFile,
   GovernanceResults,
   MutationResults,
   ReactGenerationResult,
@@ -36,18 +32,23 @@ import type {
 import {
   buildGeneratedUiUrl,
   daysSince,
-  escapeHtml,
   getErrorMessage,
-  optionalEnv,
-  requiredEnv,
-  slugify
-} from './runtime/runtime.js';
-import { triggerRailwayDeployment, waitForRailwayGeneratedUi } from './railway/railway.js';
+  optionalEnv
+} from './services/runtime/runtime.js';
+import {
+  extractChatCompletionText,
+  valueToText,
+  valueToTextArray
+} from './agent-utils/agentUtils.js';
+import { createFigmaDesignFromBrief } from './agents/figma-design-agent/figmaDesignAgent.js';
+import { generateReactFromFigmaDesign } from './agents/code-generation-agent/codeGenerationAgent.js';
+import { reviewReactUiQuality } from './agents/ui-review-agent/uiReviewAgent.js';
+import { triggerRailwayDeployment, waitForRailwayGeneratedUi } from './services/railway/railway.js';
 import {
   readDeliveryDatabaseViaMcp,
   writeDeliveryDatabaseViaMcp,
   writeGeneratedArtifactViaMcp
-} from './mcp/deliveryMcp.js';
+} from './services/mcp/deliveryMcp.js';
 import {
   closeLinearTicketAfterMerge,
   createGitHubEvidenceBranch,
@@ -56,33 +57,17 @@ import {
   postGitHubPrReviewComment,
   provisionGovernanceIntake,
   syncEvidenceToGitHubBranch
-} from './governance/governanceIntegrations.js';
+} from './services/governance/governanceIntegrations.js';
 import {
   dispatchSlackInteractiveCard,
   parseSlackCommandText
-} from './slack/slack.js';
+} from './services/slack/slack.js';
 import {
   buildFigmaPluginSessionPayload,
   renderGeneratedUi
 } from './views/deliveryViews.js';
 
 dotenv.config();
-
-// Extracts plain text from OpenAI Chat Completions JSON mode responses.
-function extractChatCompletionText(payload: unknown): string {
-  const parsedPayload = z.object({
-    choices: z.array(z.object({
-      message: z.object({
-        content: z.string().nullable()
-      })
-    }))
-  }).parse(payload);
-  const content = parsedPayload.choices[0]?.message.content;
-  if (!content) {
-    throw new Error('OpenAI response did not contain text content.');
-  }
-  return content;
-}
 
 // Calls OpenAI in JSON mode and validates the returned object with the provided Zod schema.
 async function callOpenAiJson<T>(prompt: string, schema: z.ZodType<T>, fallback: T): Promise<T> {
@@ -122,38 +107,6 @@ async function callOpenAiJson<T>(prompt: string, schema: z.ZodType<T>, fallback:
   return schema.parse(JSON.parse(extractChatCompletionText(await response.json())));
 }
 
-// Calls OpenAI and returns raw JSON so the caller can normalize common model shape drift before validation.
-async function callOpenAiJsonStrictRaw(prompt: string): Promise<unknown> {
-  const apiKey = requiredEnv('OPENAI_API_KEY');
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: optionalEnv('OPENAI_MODEL') ?? 'gpt-4o-mini',
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an autonomous senior React product designer and frontend engineer. Generate polished, production-quality UI, not default HTML. Return valid JSON only. Do not include markdown fences.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI React code generation failed with ${response.status}: ${await response.text()}`);
-  }
-
-  return JSON.parse(extractChatCompletionText(await response.json()));
-}
-
 // Produces a reliable local design brief when the LLM is unavailable.
 function fallbackDesignBrief(requestedWork: string): DesignBrief {
   const normalizedWork = requestedWork.trim() || 'a modern product experience';
@@ -180,53 +133,6 @@ function fallbackDesignBrief(requestedWork: string): DesignBrief {
     ],
     riskLevel: 'low'
   };
-}
-
-// Converts flexible LLM brief output into the strict internal DesignBrief contract used by downstream agents.
-function valueToText(value: unknown, fallback: string): string {
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim();
-  }
-
-  if (Array.isArray(value)) {
-    const joined = value.map((item) => valueToText(item, '')).filter(Boolean).join(', ');
-    return joined || fallback;
-  }
-
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    const preferredValue = record.value ?? record.name ?? record.label ?? record.title ?? record.text ?? record.description;
-    if (preferredValue !== undefined) {
-      return valueToText(preferredValue, fallback);
-    }
-
-    const flattened = Object.entries(record)
-      .map(([key, item]) => `${key}: ${valueToText(item, '')}`)
-      .filter((item) => !item.endsWith(': '))
-      .join(', ');
-    return flattened || fallback;
-  }
-
-  return fallback;
-}
-
-// Converts flexible LLM arrays/objects into a plain string array.
-function valueToTextArray(value: unknown, fallback: string[]): string[] {
-  if (Array.isArray(value)) {
-    const normalized = value.map((item) => valueToText(item, '')).filter(Boolean);
-    return normalized.length > 0 ? normalized : fallback;
-  }
-
-  if (value && typeof value === 'object') {
-    const normalized = Object.values(value as Record<string, unknown>).map((item) => valueToText(item, '')).filter(Boolean);
-    return normalized.length > 0 ? normalized : fallback;
-  }
-
-  if (typeof value === 'string' && value.trim()) {
-    return value.split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
-  }
-
-  return fallback;
 }
 
 // Normalizes model variants like "Medium" into the strict risk enum.
@@ -284,358 +190,6 @@ async function generateDesignBriefWithLlm(context: ExecutionContext): Promise<De
     ...context,
     designBrief: normalizeDesignBrief(rawBrief, context.requestedWork)
   };
-}
-
-// Builds the Figma plugin code that can materialize the generated design brief into real Figma nodes.
-function buildFigmaPluginCode(brief: DesignBrief): string {
-  const sectionData = JSON.stringify(brief.sections, null, 2);
-  const palette = JSON.stringify(brief.colorPalette, null, 2);
-
-  return `const sections = ${sectionData};
-const palette = ${palette};
-
-async function main() {
-  const frame = figma.createFrame();
-  frame.name = ${JSON.stringify(brief.brandName)} + ' - Generated Experience';
-  frame.resize(1440, 2200);
-  frame.fills = [{ type: 'SOLID', color: hexToRgb(palette[1] || '#f7efe2') }];
-  frame.layoutMode = 'VERTICAL';
-  frame.itemSpacing = 32;
-  frame.paddingTop = 64;
-  frame.paddingRight = 80;
-  frame.paddingBottom = 64;
-  frame.paddingLeft = 80;
-
-  await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
-  await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
-
-  const title = figma.createText();
-  title.name = 'Hero title';
-  title.fontName = { family: 'Inter', style: 'Bold' };
-  title.fontSize = 72;
-  title.characters = ${JSON.stringify(brief.brandName)};
-  title.fills = [{ type: 'SOLID', color: hexToRgb(palette[0] || '#101820') }];
-  frame.appendChild(title);
-
-  const subtitle = figma.createText();
-  subtitle.name = 'Hero subtitle';
-  subtitle.fontName = { family: 'Inter', style: 'Regular' };
-  subtitle.fontSize = 28;
-  subtitle.characters = ${JSON.stringify(brief.mood)};
-  subtitle.fills = [{ type: 'SOLID', color: hexToRgb(palette[4] || '#355e4b') }];
-  frame.appendChild(subtitle);
-
-  for (const sectionName of sections) {
-    const section = figma.createFrame();
-    section.name = sectionName;
-    section.resize(1280, 220);
-    section.fills = [{ type: 'SOLID', color: hexToRgb('#ffffff') }];
-    section.cornerRadius = 24;
-    section.paddingTop = 32;
-    section.paddingRight = 32;
-    section.paddingBottom = 32;
-    section.paddingLeft = 32;
-
-    const label = figma.createText();
-    label.fontName = { family: 'Inter', style: 'Bold' };
-    label.fontSize = 28;
-    label.characters = sectionName;
-    label.fills = [{ type: 'SOLID', color: hexToRgb(palette[0] || '#101820') }];
-    section.appendChild(label);
-    frame.appendChild(section);
-  }
-
-  figma.currentPage.appendChild(frame);
-  figma.viewport.scrollAndZoomIntoView([frame]);
-  figma.closePlugin('Design generated from delivery brief.');
-}
-
-function hexToRgb(hex) {
-  const clean = hex.replace('#', '');
-  const value = parseInt(clean, 16);
-  return {
-    r: ((value >> 16) & 255) / 255,
-    g: ((value >> 8) & 255) / 255,
-    b: (value & 255) / 255
-  };
-}
-
-main();`;
-}
-
-// Normalizes React agent output so generatedFiles may be an array or an object map keyed by file path/name.
-function normalizeReactGeneration(rawGeneration: unknown, input: FigmaDesignResults): ReactGenerationResult {
-  const rawRecord = rawGeneration && typeof rawGeneration === 'object' ? rawGeneration as Record<string, unknown> : {};
-  const rawGeneratedFiles = rawRecord.generatedFiles;
-  const generatedFiles = Array.isArray(rawGeneratedFiles)
-    ? rawGeneratedFiles.map((file) => {
-        if (file && typeof file === 'object') {
-          const record = file as Record<string, unknown>;
-          return {
-            path: valueToText(record.path ?? record.filePath ?? record.name, ''),
-            content: valueToText(record.content ?? record.code ?? record.source, '')
-          };
-        }
-
-        return {
-          path: '',
-          content: valueToText(file, '')
-        };
-      })
-    : rawGeneratedFiles && typeof rawGeneratedFiles === 'object'
-      ? Object.entries(rawGeneratedFiles as Record<string, unknown>).map(([fileName, fileValue]) => {
-          const normalizedPath = fileName.includes('/')
-            ? fileName
-            : `generated-app/src/${fileName}`;
-          return {
-            path: normalizedPath,
-            content: valueToText(fileValue, '')
-          };
-        })
-      : [];
-
-  const normalizedFiles = generatedFiles
-    .map((file) => ({
-      path: file.path.replace(/\\/g, '/').replace(/^src\//, 'generated-app/src/'),
-      content: file.content
-    }))
-    .filter((file) => file.path && file.content);
-
-  const appCss = normalizedFiles.find((file) => file.path === 'generated-app/src/App.css')?.content ?? '';
-  const rawPreviewHtml = valueToText(rawRecord.previewHtml ?? rawRecord.html ?? rawRecord.standaloneHtml, '');
-  const previewHtml = ensureStandalonePreviewHtml(rawPreviewHtml, appCss, input.designBrief);
-
-  const normalizedGeneration: ReactGenerationResult = {
-    summary: valueToText(rawRecord.summary, `Generated React UI for ${input.designBrief.brandName}.`),
-    componentName: valueToText(rawRecord.componentName, `${slugify(input.designBrief.brandName).replace(/(^|-)([a-z])/g, (_match, _dash, char: string) => char.toUpperCase())}GeneratedPage`),
-    previewHtml,
-    generatedFiles: normalizedFiles
-  };
-
-  return reactGenerationResultSchema.parse(normalizedGeneration);
-}
-
-// Ensures the Railway preview is a fully self-contained HTML document with inline styling.
-function ensureStandalonePreviewHtml(previewHtml: string, appCss: string, brief: DesignBrief): string {
-  const hasHtmlDocument = /<!doctype html|<html[\s>]/i.test(previewHtml);
-  const bodyMarkup = previewHtml.trim() || `<main><h1>${escapeHtml(brief.brandName)}</h1><p>${escapeHtml(brief.mood)}</p></main>`;
-  const css = appCss.trim() || [
-    'body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f8fafc; color: #111827; }',
-    'main { max-width: 960px; margin: 0 auto; padding: 48px 24px; }',
-    'input, textarea, button { font: inherit; }'
-  ].join('\n');
-
-  const html = hasHtmlDocument
-    ? bodyMarkup.replace(/<link[^>]+href=["'](?:\.\/)?App\.css["'][^>]*>/gi, '')
-    : `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(brief.brandName)}</title></head><body>${bodyMarkup}</body></html>`;
-
-  if (/<style[\s>]/i.test(html)) {
-    return html;
-  }
-
-  const styleTag = `<style>\n${css}\n</style>`;
-  if (/<\/head>/i.test(html)) {
-    return html.replace(/<\/head>/i, `${styleTag}\n</head>`);
-  }
-
-  return `${styleTag}\n${html}`;
-}
-
-// Creates Figma design artifacts from the LLM brief and writes the plugin payload through MCP.
-async function createFigmaDesignFromBrief(input: DesignBriefResults): Promise<FigmaDesignResults> {
-  const slug = slugify(input.designBrief.brandName);
-  const designSpecPath = `figma-agent/${slug}-design-spec.json`;
-  const pluginPayloadPath = `figma-agent/${slug}-plugin-code.js`;
-  const designSystem = {
-    palette: input.designBrief.colorPalette,
-    typography: input.designBrief.typography,
-    spacingScale: ['8px', '12px', '16px', '24px', '32px', '48px', '72px', '96px'],
-    cornerRadius: ['8px', '12px', '20px', '28px'],
-    elevation: ['subtle card shadow', 'hero media shadow', 'sticky nav blur']
-  };
-  const layoutBlueprint = {
-    desktop: '1440px responsive experience with clear navigation, high-impact hero, intentional section hierarchy, supporting content blocks, conversion-focused panels, and a polished footer.',
-    tablet: 'Selective two-column layouts that collapse gracefully while preserving hierarchy and spacing rhythm.',
-    mobile: 'Single-column flow with readable typography, full-width CTAs, stacked cards, and no content overlap.',
-    qualityBar: 'The generated React implementation should feel production-ready and domain-appropriate, not a wireframe or plain form.'
-  };
-  const interactionNotes = [
-    'Primary CTA needs hover, active, and focus-visible states.',
-    'Inputs/selects/buttons must be custom styled if the design includes a form.',
-    'Cards should have intentional spacing, hierarchy, and responsive dimensions.',
-    'Avoid browser-default controls and sparse one-panel layouts.'
-  ];
-  const nodes = [
-    {
-      name: 'Landing Page Frame',
-      type: 'frame' as const,
-      description: `${input.designBrief.pageType} desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections.`
-    },
-    ...input.designBrief.sections.map((section) => ({
-      name: section,
-      type: 'section' as const,
-      description: `High-fidelity section for ${section}. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment.`
-    }))
-  ];
-
-  await writeGeneratedArtifactViaMcp({
-    path: designSpecPath,
-    content: JSON.stringify({ brief: input.designBrief, designSystem, layoutBlueprint, interactionNotes, nodes }, null, 2)
-  });
-  await writeGeneratedArtifactViaMcp({
-    path: pluginPayloadPath,
-    content: buildFigmaPluginCode(input.designBrief)
-  });
-
-  return {
-    ...input,
-    figmaDesign: {
-      fileName: `${input.designBrief.brandName} Landing Page`,
-      frameName: `${input.designBrief.brandName} - Generated Experience`,
-      figmaUrl: optionalEnv('FIGMA_FILE_URL') ?? null,
-      pluginPayloadPath,
-      designSpecPath,
-      nodes
-    }
-  };
-}
-
-// Converts the Figma design artifact into React source files through an LLM code-generation agent.
-async function generateReactFromFigmaDesign(input: FigmaDesignResults, reviewerFeedback?: string): Promise<ReactGenerationResults> {
-  const infrastructureFiles: GeneratedFile[] = [
-    {
-      path: 'generated-app/package.json',
-      content: JSON.stringify({
-        scripts: { dev: 'vite', build: 'vite build', preview: 'vite preview' },
-        dependencies: { '@vitejs/plugin-react': 'latest', vite: 'latest', react: 'latest', 'react-dom': 'latest' },
-        devDependencies: {}
-      }, null, 2)
-    },
-    {
-      path: 'generated-app/index.html',
-      content: '<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8" />\n  <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n  <title>Generated UI</title>\n</head>\n<body>\n  <div id="root"></div>\n  <script type="module" src="/src/main.jsx"></script>\n</body>\n</html>\n'
-    },
-    { path: 'generated-app/src/main.jsx', content: "import React from 'react';\nimport { createRoot } from 'react-dom/client';\nimport App from './App.jsx';\n\ncreateRoot(document.getElementById('root')).render(<App />);\n" }
-  ];
-
-  const prompt = [
-    'Generate production-quality React/Vite source files from this Figma design artifact.',
-    'Return JSON only with keys: summary, componentName, previewHtml, generatedFiles.',
-    'generatedFiles must include exactly these app source files: generated-app/src/App.jsx and generated-app/src/App.css.',
-    'Do not include package.json, index.html, or main.jsx; the runtime provides those infrastructure files.',
-    'previewHtml must be a complete standalone HTML document that visually matches the generated React UI and can be served directly from Railway.',
-    'previewHtml must include all CSS inside a <style> tag in the <head>. Do not use <link rel="stylesheet">, App.css links, external fonts, or remote assets.',
-    'Use React function components and plain CSS only. Do not import external UI libraries or image assets.',
-    'App.jsx must import ./App.css and export a default component.',
-    'CSS must be responsive for mobile and desktop and must avoid text overlap.',
-    'Visual quality is mandatory: create a refined, modern, high-fidelity page with strong spacing, hierarchy, custom form/control styling, hover/focus states, responsive layout, and polished color contrast.',
-    'Do not output a plain centered form, unstyled browser-default controls, default serif typography, or sparse single-panel UI.',
-    'If the prompt asks for a form, wrap it in a complete branded experience with a header/hero, supporting content, status/benefit cards, and an intentionally styled form surface.',
-    'If the prompt specifies a domain, include the expected domain sections and conversion path for that domain.',
-    'Do not reinterpret the requested experience as a feedback form, survey, or admin tool unless the prompt explicitly asks for that.',
-    'Use only local CSS in App.css. Include a global reset, body background, typography, layout shell, button states, input states, mobile breakpoints, and accessible focus styles.',
-    'Keep colors balanced and professional. Do not rely on a single pale background color as the dominant visual system.',
-    'The UI must fit the actual prompt and design brief, not a fixed template.',
-    reviewerFeedback
-      ? `UI Review Agent feedback from the previous attempt. Regenerate the React/CSS to address every point:\n${reviewerFeedback}`
-      : 'This is the first generation attempt. Optimize for high visual quality on the first pass.',
-    '',
-    `Original Slack prompt: ${input.requestedWork}`,
-    `Requester: ${input.requester}`,
-    '',
-    `Design brief JSON:\n${JSON.stringify(input.designBrief, null, 2)}`,
-    '',
-    `Figma artifact JSON:\n${JSON.stringify(input.figmaDesign, null, 2)}`
-  ].join('\n');
-
-  const generatedByAgent = normalizeReactGeneration(await callOpenAiJsonStrictRaw(prompt), input);
-  const appJsx = generatedByAgent.generatedFiles.find((file) => file.path === 'generated-app/src/App.jsx');
-  const appCss = generatedByAgent.generatedFiles.find((file) => file.path === 'generated-app/src/App.css');
-
-  if (!appJsx || !appCss) {
-    throw new Error('React Code Generator Agent must return generated-app/src/App.jsx and generated-app/src/App.css.');
-  }
-
-  return {
-    ...input,
-    reactGeneration: {
-      ...generatedByAgent,
-      generatedFiles: [
-        ...infrastructureFiles,
-        appJsx,
-        appCss
-      ]
-    }
-  };
-}
-
-// Normalizes UI reviewer output so the workflow can handle minor LLM response-shape drift.
-function normalizeUiQualityReview(rawReview: unknown): UiQualityReview {
-  const rawRecord = rawReview && typeof rawReview === 'object' ? rawReview as Record<string, unknown> : {};
-  const numericScore = Number(rawRecord.score ?? rawRecord.qualityScore ?? rawRecord.overallScore ?? 0);
-  const score = Math.max(0, Math.min(100, Number.isFinite(numericScore) ? numericScore : 0));
-  const uiQualityScoreRaw = Number(rawRecord.uiQualityScore ?? score);
-  const codeQualityScoreRaw = Number(rawRecord.codeQualityScore ?? score);
-  const requirementCoverageScoreRaw = Number(rawRecord.requirementCoverageScore ?? rawRecord.businessRequirementScore ?? score);
-  const uiQualityScore = Math.max(0, Math.min(100, Number.isFinite(uiQualityScoreRaw) ? uiQualityScoreRaw : score));
-  const codeQualityScore = Math.max(0, Math.min(100, Number.isFinite(codeQualityScoreRaw) ? codeQualityScoreRaw : score));
-  const requirementCoverageScore = Math.max(0, Math.min(100, Number.isFinite(requirementCoverageScoreRaw) ? requirementCoverageScoreRaw : score));
-  const findings = valueToTextArray(rawRecord.findings ?? rawRecord.issues ?? rawRecord.recommendations, [
-    'Review response was incomplete; regenerate with stronger UI polish, cleaner React/CSS architecture, and tighter requirement coverage.'
-  ]);
-  const codeFindings = valueToTextArray(rawRecord.codeFindings ?? rawRecord.bestPracticeFindings ?? rawRecord.codeIssues, []);
-  const requirementFindings = valueToTextArray(rawRecord.requirementFindings ?? rawRecord.businessRequirementFindings ?? rawRecord.requirementGaps, []);
-  const blockingIssues = valueToTextArray(rawRecord.blockingIssues ?? rawRecord.blockers, []);
-  const regenerationPrompt = valueToText(
-    rawRecord.regenerationPrompt ?? rawRecord.feedback ?? rawRecord.revisionPrompt,
-    [...findings, ...codeFindings, ...requirementFindings, ...blockingIssues].join('\n')
-  );
-  const passed = typeof rawRecord.passed === 'boolean'
-    ? rawRecord.passed
-    : score >= 82 && uiQualityScore >= 80 && codeQualityScore >= 80 && requirementCoverageScore >= 80 && blockingIssues.length === 0;
-
-  return uiQualityReviewSchema.parse({
-    uiQualityScore,
-    codeQualityScore,
-    requirementCoverageScore,
-    score,
-    passed: passed && score >= 82 && blockingIssues.length === 0,
-    findings,
-    codeFindings,
-    requirementFindings,
-    blockingIssues,
-    regenerationPrompt
-  });
-}
-
-// Reviews generated React/CSS for visual quality, code quality, and business requirement coverage.
-async function reviewReactUiQuality(input: ReactGenerationResults): Promise<UiQualityReview> {
-  const appJsx = input.reactGeneration.generatedFiles.find((file) => file.path === 'generated-app/src/App.jsx')?.content ?? '';
-  const appCss = input.reactGeneration.generatedFiles.find((file) => file.path === 'generated-app/src/App.css')?.content ?? '';
-  const prompt = [
-    'Review this generated React/Vite implementation as a principal frontend reviewer.',
-    'Return JSON only with keys: uiQualityScore, codeQualityScore, requirementCoverageScore, score, passed, findings, codeFindings, requirementFindings, blockingIssues, regenerationPrompt.',
-    'Each score must be a number from 0 to 100.',
-    'passed must only be true when score is at least 82, all sub-scores are at least 80, and there are no blockingIssues.',
-    'findings should summarize overall quality gaps.',
-    'codeFindings must focus on React/CSS correctness, maintainability, accessibility, responsiveness, and best practices.',
-    'requirementFindings must focus on whether business intent from the Slack prompt and acceptance criteria is fully covered.',
-    'blockingIssues should only contain severe release blockers.',
-    'regenerationPrompt must be directly actionable for regenerating improved App.jsx and App.css.',
-    'Reject plain centered forms, sparse layouts, browser-default controls, weak hierarchy, code smells, and requirement mismatch.',
-    '',
-    `Original Slack prompt: ${input.requestedWork}`,
-    '',
-    `Design brief JSON:\n${JSON.stringify(input.designBrief, null, 2)}`,
-    '',
-    `Figma artifact JSON:\n${JSON.stringify(input.figmaDesign, null, 2)}`,
-    '',
-    `Generated App.jsx:\n${appJsx}`,
-    '',
-    `Generated App.css:\n${appCss}`
-  ].join('\n');
-
-  return normalizeUiQualityReview(await callOpenAiJsonStrictRaw(prompt));
 }
 
 // ---------------------------------------------------------

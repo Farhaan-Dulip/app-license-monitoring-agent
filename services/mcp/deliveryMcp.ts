@@ -4,9 +4,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { deliveryDatabaseSchema } from '../schemas/schemas.js';
+import { deliveryDatabaseSchema } from '../../schemas/schemas.js';
 import { DELIVERY_DATABASE_PATH, resolveGeneratedArtifactPath } from '../runtime/runtime.js';
-import type { DeliveryDatabase, GeneratedFile, McpTextContent } from '../types/types.js';
+import type { DeliveryDatabase, GeneratedFile, McpTextContent } from '../../types/types.js';
 
 let mcpClientPromise: Promise<Client> | undefined;
 
@@ -93,7 +93,7 @@ async function initializeDeliveryMcpClient(): Promise<Client> {
     'write_generated_artifact',
     {
       title: 'Write Generated Artifact',
-      description: 'Writes generated React, documentation, or Figma-agent artifact files to approved project folders.',
+      description: 'Writes generated React, documentation, or Figma design artifact files to approved project folders.',
       inputSchema: {
         filePath: z.string(),
         content: z.string()

@@ -1,5 +1,5 @@
 import * as fs from 'node:fs';
-import { getLinearClient, getOctokit } from '../clients/clients.js';
+import { getLinearClient, getOctokit } from '../../clients/clients.js';
 import { delay, getErrorMessage, optionalEnv, resolveGeneratedArtifactPath } from '../runtime/runtime.js';
 // Creates or updates one file on the workflow branch, supporting both existing and brand-new generated artifacts.
 async function upsertGitHubFile(octokit, owner, repo, branchName, filePath, content, message) {

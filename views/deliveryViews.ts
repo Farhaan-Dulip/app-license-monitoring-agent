@@ -9,7 +9,7 @@ import {
   DELIVERY_DATABASE_PATH,
   optionalEnv,
   resolveGeneratedArtifactPath
-} from '../runtime/runtime.js';
+} from '../services/runtime/runtime.js';
 import type { DesignBrief, FigmaDesignArtifact } from '../types/types.js';
 
 // Reads the Figma design spec written by the workflow so a live Figma plugin session can materialize it.

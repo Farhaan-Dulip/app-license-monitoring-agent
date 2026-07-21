@@ -3,8 +3,8 @@
 Requester: farhandulip05
 Prompt: can you build a modern feedback form which includes email input, ratings and comment section?
 Risk: medium
-Figma design spec: figma-agent/modernfeedback-inc-design-spec.json
-Figma plugin payload: figma-agent/modernfeedback-inc-plugin-code.js
+Figma design spec: generated-artifacts/figma/modernfeedback-inc-design-spec.json
+Figma plugin payload: generated-artifacts/figma/modernfeedback-inc-plugin-code.js
 
 ## LLM Summary
 A modern feedback form designed for ModernFeedback Inc. including sections for email input, ratings, and comments. This UI is professional, user-friendly, and fully responsive, ensuring a good experience across devices.

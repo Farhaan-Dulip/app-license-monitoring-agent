@@ -3,8 +3,8 @@
 Requester: farhandulip05
 Prompt: build me a feedback form that includes email input, ratings and text area to enter comments.
 Risk: medium
-Figma design spec: figma-agent/gourmet-delights-design-spec.json
-Figma plugin payload: figma-agent/gourmet-delights-plugin-code.js
+Figma design spec: generated-artifacts/figma/gourmet-delights-design-spec.json
+Figma plugin payload: generated-artifacts/figma/gourmet-delights-plugin-code.js
 
 ## LLM Summary
 A responsive feedback form component for Gourmet Delights includes email input, star ratings, and a comments text area, designed to be visually appealing and user-friendly.

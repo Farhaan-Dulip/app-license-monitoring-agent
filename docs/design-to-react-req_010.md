@@ -3,8 +3,8 @@
 Requester: farhandulip05
 Prompt: can you build a feedback form which is modern and stylish? the form should contain email input, ratings and comment section
 Risk: medium
-Figma design spec: figma-agent/modern-feedback-co-design-spec.json
-Figma plugin payload: figma-agent/modern-feedback-co-plugin-code.js
+Figma design spec: generated-artifacts/figma/modern-feedback-co-design-spec.json
+Figma plugin payload: generated-artifacts/figma/modern-feedback-co-plugin-code.js
 
 ## LLM Summary
 A modern and stylish feedback form for Modern Feedback Co., featuring email input, star ratings, and a comment section. The form is fully responsive and includes detailed user interaction designs for a streamlined experience.

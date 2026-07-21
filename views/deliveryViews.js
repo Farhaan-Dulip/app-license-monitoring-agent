@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import { z } from 'zod';
 import { deliveryDatabaseSchema, designBriefSchema, figmaDesignArtifactSchema } from '../schemas/schemas.js';
-import { DELIVERY_DATABASE_PATH, optionalEnv, resolveGeneratedArtifactPath } from '../runtime/runtime.js';
+import { DELIVERY_DATABASE_PATH, optionalEnv, resolveGeneratedArtifactPath } from '../services/runtime/runtime.js';
 // Reads the Figma design spec written by the workflow so a live Figma plugin session can materialize it.
 export function buildFigmaPluginSessionPayload(requestId) {
     const database = deliveryDatabaseSchema.parse(JSON.parse(fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')));

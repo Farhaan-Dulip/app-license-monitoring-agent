@@ -1,6 +1,6 @@
 import { LinearClient } from '@linear/sdk';
 import { Octokit } from '@octokit/rest';
-import { optionalEnv } from '../runtime/runtime.js';
+import { optionalEnv } from '../services/runtime/runtime.js';
 
 // Creates a GitHub API client when GITHUB_TOKEN is configured, otherwise disables GitHub governance.
 export function getOctokit(): Octokit | undefined {

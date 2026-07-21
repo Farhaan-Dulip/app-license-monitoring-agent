@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { MutationResults } from '../types/types.js';
+import type { MutationResults } from '../../types/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __moduleDirname = path.dirname(__filename);
@@ -9,7 +9,7 @@ const PROJECT_ROOT = path.dirname(__moduleDirname);
 export const DELIVERY_DATABASE_PATH = path.join(PROJECT_ROOT, 'delivery-requests.json');
 export const GENERATED_APP_DIR = path.join(PROJECT_ROOT, 'generated-app');
 export const GENERATED_DOCS_DIR = path.join(PROJECT_ROOT, 'docs');
-export const FIGMA_AGENT_DIR = path.join(PROJECT_ROOT, 'figma-agent');
+export const GENERATED_FIGMA_DIR = path.join(PROJECT_ROOT, 'generated-artifacts', 'figma');
 export const FIGMA_PLUGIN_DIR = path.join(PROJECT_ROOT, 'figma-plugin');
 
 // Reads a required environment variable and stops startup/workflow execution when the value is missing.
@@ -43,7 +43,7 @@ export function delay(milliseconds: number): Promise<void> {
 export function resolveGeneratedArtifactPath(relativePath: string): string {
   const normalizedPath = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
   const absolutePath = path.resolve(PROJECT_ROOT, normalizedPath);
-  const allowedRoots = [GENERATED_APP_DIR, GENERATED_DOCS_DIR, FIGMA_AGENT_DIR, FIGMA_PLUGIN_DIR].map((root) => path.resolve(root));
+  const allowedRoots = [GENERATED_APP_DIR, GENERATED_DOCS_DIR, GENERATED_FIGMA_DIR, FIGMA_PLUGIN_DIR].map((root) => path.resolve(root));
 
   if (!allowedRoots.some((root) => absolutePath === root || absolutePath.startsWith(`${root}${path.sep}`))) {
     throw new Error(`Generated artifact path is outside approved directories: ${relativePath}`);
