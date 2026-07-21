@@ -2,12 +2,12 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __moduleDirname = path.dirname(__filename);
-const PROJECT_ROOT = path.dirname(__moduleDirname);
+const PROJECT_ROOT = path.dirname(path.dirname(__moduleDirname));
 export const DELIVERY_DATABASE_PATH = path.join(PROJECT_ROOT, 'delivery-requests.json');
 export const GENERATED_APP_DIR = path.join(PROJECT_ROOT, 'generated-app');
 export const GENERATED_DOCS_DIR = path.join(PROJECT_ROOT, 'docs');
 export const GENERATED_FIGMA_DIR = path.join(PROJECT_ROOT, 'generated-artifacts', 'figma');
-export const FIGMA_PLUGIN_DIR = path.join(PROJECT_ROOT, 'figma-plugin');
+export const FIGMA_PLUGIN_DIR = path.join(PROJECT_ROOT, 'services', 'figma-plugin');
 // Reads a required environment variable and stops startup/workflow execution when the value is missing.
 export function requiredEnv(name) {
     const value = process.env[name];
