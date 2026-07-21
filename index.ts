@@ -61,6 +61,13 @@ type ReactGenerationResult = {
   generatedFiles: GeneratedFile[];
 };
 
+type UiQualityReview = {
+  score: number;
+  passed: boolean;
+  findings: string[];
+  regenerationPrompt: string;
+};
+
 type DeliveryRecord = {
   id: string;
   request: string;
@@ -78,6 +85,8 @@ type DeliveryRecord = {
   riskLevel?: 'low' | 'medium' | 'high' | undefined;
   generatedPreviewHtml?: string | undefined;
   generatedFiles?: string[] | undefined;
+  uiQualityScore?: number | undefined;
+  uiQualityFindings?: string[] | undefined;
 };
 
 type DeliveryDatabase = {
@@ -101,6 +110,7 @@ type FigmaDesignResults = DesignBriefResults & {
 
 type ReactGenerationResults = FigmaDesignResults & {
   reactGeneration: ReactGenerationResult;
+  uiQualityReview?: UiQualityReview | undefined;
 };
 
 type AnalysisResults = ReactGenerationResults & {
@@ -180,7 +190,9 @@ const deliveryRecordSchema = z.object({
   implementationPlan: z.array(z.string()).optional(),
   riskLevel: z.enum(['low', 'medium', 'high']).optional(),
   generatedPreviewHtml: z.string().optional(),
-  generatedFiles: z.array(z.string()).optional()
+  generatedFiles: z.array(z.string()).optional(),
+  uiQualityScore: z.number().optional(),
+  uiQualityFindings: z.array(z.string()).optional()
 });
 
 const generatedFileSchema = z.object({
@@ -222,6 +234,13 @@ const reactGenerationResultSchema = z.object({
   generatedFiles: z.array(generatedFileSchema)
 });
 
+const uiQualityReviewSchema = z.object({
+  score: z.number().min(0).max(100),
+  passed: z.boolean(),
+  findings: z.array(z.string()),
+  regenerationPrompt: z.string()
+});
+
 const deliveryDatabaseSchema = z.object({
   organization: z.string().optional(),
   lastUpdated: z.string().optional(),
@@ -242,7 +261,8 @@ const figmaDesignResultsSchema = designBriefResultsSchema.extend({
 });
 
 const reactGenerationResultsSchema = figmaDesignResultsSchema.extend({
-  reactGeneration: reactGenerationResultSchema
+  reactGeneration: reactGenerationResultSchema,
+  uiQualityReview: uiQualityReviewSchema.optional()
 });
 
 const analysisResultsSchema = reactGenerationResultsSchema.extend({
@@ -627,7 +647,9 @@ async function generateDesignBriefWithLlm(context: ExecutionContext): Promise<De
     'Important: colorPalette must be an array of hex color strings.',
     'Important: typography, primaryCta, and every sections item must be plain strings.',
     'Important: riskLevel must be exactly one of: low, medium, high.',
-    'Use realistic restaurant landing-page content if the prompt is vague.'
+    'Use realistic restaurant landing-page content if the prompt is vague.',
+    'For restaurant landing pages, the brief must focus on reservations, menu highlights, ambience, chef/story, hours/location, and private dining or events.',
+    'Do not reinterpret a restaurant landing page as a feedback form, survey, admin tool, or generic contact form unless the Slack prompt explicitly asks for that.'
   ].join('\n');
 
   const rawBrief = await callOpenAiJson(prompt, z.unknown(), fallbackDesignBrief(context.requestedWork));
@@ -798,18 +820,41 @@ async function createFigmaDesignFromBrief(input: DesignBriefResults): Promise<Fi
   const slug = slugify(input.designBrief.brandName);
   const designSpecPath = `figma-agent/${slug}-design-spec.json`;
   const pluginPayloadPath = `figma-agent/${slug}-plugin-code.js`;
+  const designSystem = {
+    palette: input.designBrief.colorPalette,
+    typography: input.designBrief.typography,
+    spacingScale: ['8px', '12px', '16px', '24px', '32px', '48px', '72px', '96px'],
+    cornerRadius: ['8px', '12px', '20px', '28px'],
+    elevation: ['subtle card shadow', 'hero media shadow', 'sticky nav blur']
+  };
+  const layoutBlueprint = {
+    desktop: '1440px marketing page with sticky nav, full first-viewport hero, asymmetric content/media composition, menu card grid, story band, reservation or conversion panel, and footer.',
+    tablet: 'Two-column sections collapse selectively while maintaining strong hierarchy and generous spacing.',
+    mobile: 'Single-column flow with compact navigation, readable hero headline, full-width CTAs, stacked cards, and no text overlap.',
+    qualityBar: 'The generated React implementation should feel like a finished product landing page, not a wireframe or plain form.'
+  };
+  const interactionNotes = [
+    'Primary CTA needs hover, active, and focus-visible states.',
+    'Inputs/selects/buttons must be custom styled if the design includes a form.',
+    'Cards should have intentional spacing, hierarchy, and responsive dimensions.',
+    'Avoid browser-default controls and sparse one-panel layouts.'
+  ];
   const nodes = [
-    { name: 'Restaurant Landing Page Frame', type: 'frame' as const, description: 'Desktop landing page frame generated from Slack prompt.' },
+    {
+      name: 'Landing Page Frame',
+      type: 'frame' as const,
+      description: `${input.designBrief.pageType} desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections.`
+    },
     ...input.designBrief.sections.map((section) => ({
       name: section,
       type: 'section' as const,
-      description: `Figma section for ${section}.`
+      description: `High-fidelity section for ${section}. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment.`
     }))
   ];
 
   await writeGeneratedArtifactViaMcp({
     path: designSpecPath,
-    content: JSON.stringify({ brief: input.designBrief, nodes }, null, 2)
+    content: JSON.stringify({ brief: input.designBrief, designSystem, layoutBlueprint, interactionNotes, nodes }, null, 2)
   });
   await writeGeneratedArtifactViaMcp({
     path: pluginPayloadPath,
@@ -830,7 +875,7 @@ async function createFigmaDesignFromBrief(input: DesignBriefResults): Promise<Fi
 }
 
 // Converts the Figma design artifact into React source files through an LLM code-generation agent.
-async function generateReactFromFigmaDesign(input: FigmaDesignResults): Promise<ReactGenerationResults> {
+async function generateReactFromFigmaDesign(input: FigmaDesignResults, reviewerFeedback?: string): Promise<ReactGenerationResults> {
   const infrastructureFiles: GeneratedFile[] = [
     {
       path: 'generated-app/package.json',
@@ -860,9 +905,14 @@ async function generateReactFromFigmaDesign(input: FigmaDesignResults): Promise<
     'Visual quality is mandatory: create a refined, modern, high-fidelity page with strong spacing, hierarchy, custom form/control styling, hover/focus states, responsive layout, and polished color contrast.',
     'Do not output a plain centered form, unstyled browser-default controls, default serif typography, or sparse single-panel UI.',
     'If the prompt asks for a form, wrap it in a complete branded experience with a header/hero, supporting content, status/benefit cards, and an intentionally styled form surface.',
+    'If the prompt asks for a restaurant landing page, create a complete restaurant marketing page: nav, full hero, cuisine positioning, reservation CTA, menu highlights, ambience/story section, hours/location details, and footer.',
+    'For restaurant landing pages, do not generate a feedback form unless the prompt explicitly asks for feedback collection.',
     'Use only local CSS in App.css. Include a global reset, body background, typography, layout shell, button states, input states, mobile breakpoints, and accessible focus styles.',
     'Keep colors balanced and professional. Do not rely on a single pale background color as the dominant visual system.',
     'The UI must fit the actual prompt and design brief, not a fixed restaurant template.',
+    reviewerFeedback
+      ? `UI Review Agent feedback from the previous attempt. Regenerate the React/CSS to address every point:\n${reviewerFeedback}`
+      : 'This is the first generation attempt. Optimize for high visual quality on the first pass.',
     '',
     `Original Slack prompt: ${input.requestedWork}`,
     `Requester: ${input.requester}`,
@@ -890,6 +940,86 @@ async function generateReactFromFigmaDesign(input: FigmaDesignResults): Promise<
         appCss
       ]
     }
+  };
+}
+
+// Normalizes UI reviewer output so the workflow can handle minor LLM response-shape drift.
+function normalizeUiQualityReview(rawReview: unknown): UiQualityReview {
+  const rawRecord = rawReview && typeof rawReview === 'object' ? rawReview as Record<string, unknown> : {};
+  const numericScore = Number(rawRecord.score ?? rawRecord.qualityScore ?? rawRecord.uiQualityScore ?? 0);
+  const score = Math.max(0, Math.min(100, Number.isFinite(numericScore) ? numericScore : 0));
+  const findings = valueToTextArray(rawRecord.findings ?? rawRecord.issues ?? rawRecord.recommendations, [
+    'UI review response was incomplete; regenerate with stronger visual hierarchy, spacing, responsive layout, and polished styling.'
+  ]);
+  const regenerationPrompt = valueToText(
+    rawRecord.regenerationPrompt ?? rawRecord.feedback ?? rawRecord.revisionPrompt,
+    findings.join('\n')
+  );
+  const passed = typeof rawRecord.passed === 'boolean' ? rawRecord.passed : score >= 82;
+
+  return uiQualityReviewSchema.parse({
+    score,
+    passed: passed && score >= 82,
+    findings,
+    regenerationPrompt
+  });
+}
+
+// Reviews generated React/CSS for visual quality, prompt fit, responsiveness, and production polish.
+async function reviewReactUiQuality(input: ReactGenerationResults): Promise<UiQualityReview> {
+  const appJsx = input.reactGeneration.generatedFiles.find((file) => file.path === 'generated-app/src/App.jsx')?.content ?? '';
+  const appCss = input.reactGeneration.generatedFiles.find((file) => file.path === 'generated-app/src/App.css')?.content ?? '';
+  const prompt = [
+    'Review this generated React/Vite UI as a strict senior product designer.',
+    'Return JSON only with keys: score, passed, findings, regenerationPrompt.',
+    'score must be a number from 0 to 100.',
+    'passed must only be true when score is at least 82 and the UI clearly satisfies the Slack prompt.',
+    'Findings must be specific and actionable for regenerating React/CSS.',
+    'Reject plain centered forms, sparse layouts, browser-default controls, weak color systems, poor hierarchy, missing responsive behavior, and mismatches with the prompt.',
+    'For restaurant landing pages, require nav, full hero, cuisine positioning, reservation CTA, menu highlights, ambience/story, hours/location or footer, and polished responsive styling.',
+    '',
+    `Original Slack prompt: ${input.requestedWork}`,
+    '',
+    `Design brief JSON:\n${JSON.stringify(input.designBrief, null, 2)}`,
+    '',
+    `Figma artifact JSON:\n${JSON.stringify(input.figmaDesign, null, 2)}`,
+    '',
+    `Generated App.jsx:\n${appJsx}`,
+    '',
+    `Generated App.css:\n${appCss}`
+  ].join('\n');
+
+  return normalizeUiQualityReview(await callOpenAiJsonStrictRaw(prompt));
+}
+
+// Adds an agentic critique/regeneration loop after React generation so valid-but-weak UI is improved before persistence.
+async function reviewAndRegenerateReactUi(input: ReactGenerationResults): Promise<ReactGenerationResults> {
+  const firstReview = await reviewReactUiQuality(input);
+  console.log('UI Quality Review Agent score:', {
+    score: firstReview.score,
+    passed: firstReview.passed,
+    findings: firstReview.findings
+  });
+
+  if (firstReview.passed) {
+    return {
+      ...input,
+      uiQualityReview: firstReview
+    };
+  }
+
+  console.warn('UI Quality Review Agent requested regeneration:', firstReview.regenerationPrompt);
+  const regenerated = await generateReactFromFigmaDesign(input, firstReview.regenerationPrompt);
+  const secondReview = await reviewReactUiQuality(regenerated);
+  console.log('UI Quality Review Agent retry score:', {
+    score: secondReview.score,
+    passed: secondReview.passed,
+    findings: secondReview.findings
+  });
+
+  return {
+    ...regenerated,
+    uiQualityReview: secondReview
   };
 }
 
@@ -1072,7 +1202,9 @@ async function runDeliveryAnalysis(generationContext: ReactGenerationResults): P
             implementationPlan: generationContext.designBrief.implementationPlan,
             riskLevel: generationContext.designBrief.riskLevel,
             generatedPreviewHtml: generationContext.reactGeneration.previewHtml,
-            generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path)
+            generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path),
+            uiQualityScore: generationContext.uiQualityReview?.score,
+            uiQualityFindings: generationContext.uiQualityReview?.findings
           }
         : record
     );
@@ -1111,7 +1243,9 @@ async function runDeliveryAnalysis(generationContext: ReactGenerationResults): P
     implementationPlan: generationContext.designBrief.implementationPlan,
     riskLevel: generationContext.designBrief.riskLevel,
     generatedPreviewHtml: generationContext.reactGeneration.previewHtml,
-    generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path)
+    generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path),
+    uiQualityScore: generationContext.uiQualityReview?.score,
+    uiQualityFindings: generationContext.uiQualityReview?.findings
   };
 
   const updatedRequestArray = reusableDraft
@@ -1132,7 +1266,9 @@ async function runDeliveryAnalysis(generationContext: ReactGenerationResults): P
               implementationPlan: generationContext.designBrief.implementationPlan,
               riskLevel: generationContext.designBrief.riskLevel,
               generatedPreviewHtml: generationContext.reactGeneration.previewHtml,
-              generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path)
+              generatedFiles: generationContext.reactGeneration.generatedFiles.map((file) => file.path),
+              uiQualityScore: generationContext.uiQualityReview?.score,
+              uiQualityFindings: generationContext.uiQualityReview?.findings
             }
           : record
       )
@@ -1166,6 +1302,11 @@ async function persistGeneratedArtifacts(results: AnalysisResults): Promise<Anal
     '',
     '## LLM Summary',
     results.reactGeneration.summary,
+    '',
+    '## UI Quality Review',
+    `Score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
+    `Passed: ${results.uiQualityReview?.passed ?? false}`,
+    ...(results.uiQualityReview?.findings ?? ['No UI quality findings were recorded.']).map((item) => `- ${item}`),
     '',
     '## Acceptance Criteria',
     ...results.designBrief.acceptanceCriteria.map((item) => `- ${item}`),
@@ -1261,7 +1402,7 @@ async function dispatchSlackInteractiveCard(results: GovernanceResults): Promise
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*Figma Design Agent:* \`${results.figmaDesign.designSpecPath}\` + \`${results.figmaDesign.pluginPayloadPath}\`\n*Live Figma Plugin Session:* <${figmaPluginSessionUrl}|Fetch design payload>\n*React Code Generator:* ${results.reactGeneration.summary}\n*Generated React Files:* ${generatedFileList}`
+          text: `*Figma Design Agent:* \`${results.figmaDesign.designSpecPath}\` + \`${results.figmaDesign.pluginPayloadPath}\`\n*Live Figma Plugin Session:* <${figmaPluginSessionUrl}|Fetch design payload>\n*React Code Generator:* ${results.reactGeneration.summary}\n*UI Review Agent:* Score ${results.uiQualityReview?.score ?? 'not reviewed'} / 100\n*Generated React Files:* ${generatedFileList}`
         }
       },
       {
@@ -1426,6 +1567,7 @@ async function createGitHubEvidencePr(
       `- Figma design spec: ${results.figmaDesign.designSpecPath}`,
       `- Figma plugin payload: ${results.figmaDesign.pluginPayloadPath}`,
       `- React component: ${results.reactGeneration.componentName}`,
+      `- UI quality score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
       `- Generated files: ${results.reactGeneration.generatedFiles.map((file) => file.path).join(', ')}`
     ].join('\n')
   });
@@ -1490,6 +1632,7 @@ async function createLinearGovernanceTicket(
       `Figma design spec: ${results.figmaDesign.designSpecPath}`,
       `Figma plugin payload: ${results.figmaDesign.pluginPayloadPath}`,
       `React component: ${results.reactGeneration.componentName}`,
+      `UI quality score: ${results.uiQualityReview?.score ?? 'not reviewed'}`,
       `Generated files: ${results.reactGeneration.generatedFiles.map((file) => file.path).join(', ')}`,
       '',
       'Acceptance criteria:',
@@ -1625,6 +1768,18 @@ const reactGenerationStep = createStep({
   }
 });
 
+// Defines the UI quality review agent that critiques generated React/CSS and triggers one regeneration when needed.
+const uiQualityReviewStep = createStep({
+  id: 'reviewAndRegenerateReactUi',
+  description: 'Reviews generated UI quality and regenerates React/CSS once if the quality score is too low.',
+  inputSchema: reactGenerationResultsSchema,
+  outputSchema: reactGenerationResultsSchema,
+  execute: async ({ inputData }) => {
+    console.log('Running Node 4: UI Quality Review Agent...');
+    return reviewAndRegenerateReactUi(inputData);
+  }
+});
+
 // Defines the Mastra analysis step that reads delivery state through MCP and creates or updates a request.
 const analysisStep = createStep({
   id: 'runAIRequestAnalysis',
@@ -1726,6 +1881,7 @@ const engineeringDeliveryWorkflow = createWorkflow({
   .then(designBriefStep)
   .then(figmaDesignStep)
   .then(reactGenerationStep)
+  .then(uiQualityReviewStep)
   .then(analysisStep)
   .then(mcpArtifactStep)
   .then(mcpMutationStep)
