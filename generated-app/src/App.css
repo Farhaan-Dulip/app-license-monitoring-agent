@@ -1,67 +1,68 @@
-.feedback-container {
-    max-width: 600px;
-    margin: auto;
-    padding: 20px;
-    background-color: #FFFFFF;
-    border: 1px solid #2E8B57;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
-
-h1 {
-    color: #FF6347;
+ body {
+    font-family: 'Open Sans', sans-serif;
+    background-color: #FFFFFF;
+    color: #394B2B;
+    line-height: 1.6;
+}
+ header {
+    background-color: #D64C4C;
+    color: white;
+    padding: 20px;
     text-align: center;
 }
-
-label {
-    display: block;
-    margin: 10px 0 5px;
-    font-family: Arial, sans-serif;
+ h1 {
+    margin-bottom: 10px;
+    font-size: 2.5em;
 }
-
-input[type="email"], input[type="radio"], textarea {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #2E8B57;
-    border-radius: 4px;
-    font-family: Arial, sans-serif;
+ h2 {
+    margin: 20px 0;
+    font-size: 1.8em;
 }
-
-.rating {
+ .container {
+    width: 90%;
+    max-width: 1200px;
+    margin: auto;
+}
+ .hero {
+    background: url('your-signature-dish-image-url') no-repeat center center/cover;
+    height: 400px;
+}
+ .section {
+    padding: 40px 20px;
+}
+ .menu, .about, .testimonials, .contact {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: center;
 }
-
-.rating input {
-    display: none;
+ .card {
+    background: #F4D35E;
+    padding: 20px;
+    margin: 10px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 300px;
+    text-align: center;
 }
-
-.rating label {
-    font-size: 30px;
-    color: #FFD700;
-    cursor: pointer;
-}
-
-button {
-    background-color: #2E8B57;
+ button {
+    background-color: #5CDB95;
     color: white;
     border: none;
-    padding: 10px;
+    padding: 15px 20px;
     cursor: pointer;
-    width: 100%;
-    font-size: 16px;
+    border-radius: 5px;
 }
-
-button:hover {
-    background-color: #FF6347;
+ button:hover {
+    background-color: #394B2B;
 }
-
-@media (max-width: 768px) {
-    .feedback-container {
-        padding: 15px;
-    }
-    button {
-        font-size: 14px;
+ @media (min-width: 768px) {
+    .menu, .about, .testimonials, .contact {
+        flex-direction: row;
+        justify-content: center;
     }
 }
