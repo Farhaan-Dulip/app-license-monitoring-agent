@@ -1,56 +1,56 @@
-import React from 'react';
 import './App.css';
 
-const HotPotLandingPage = () => {
+function App() {
     return (
         <div>
             <header>
-                <h1>Welcome to HotPot</h1>
+                <h1>Welcome to HotPot!</h1>
+                <h2>Experience the warmth of delicious meals</h2>
             </header>
-            <div className="hero">
-                <h1>Experience the Flavors of HotPot!</h1>
-                <p>Make your taste buds dance with our exquisite dishes.</p>
-                <button className="cta">Make a Reservation</button>
+            <div className="container">
+                <section className="hero">
+                    <h2>Delicious HotPot Dishes Awaiting You</h2>
+                </section>
+                <section className="about">
+                    <h2>About Us</h2>
+                    <p>HotPot offers a unique dining experience combining traditional recipes with a modern twist.</p>
+                </section>
+                <section className="menu">
+                    <h2>Our Menu</h2>
+                    <p>Explore our range of exquisite dishes available for you at HotPot.</p>
+                </section>
+                <section className="reservation">
+                    <h2>Make a Reservation</h2>
+                    <form>
+                        <div className="form-group">
+                            <input type="text" className="form-control" placeholder="Your Name" required />
+                        </div>
+                        <div className="form-group">
+                            <input type="email" className="form-control" placeholder="Your Email" required />
+                        </div>
+                        <div className="form-group">
+                            <input type="date" className="form-control" required />
+                        </div>
+                        <div className="form-group">
+                            <input type="time" className="form-control" required />
+                        </div>
+                        <button type="submit" className="btn">Reserve Now</button>
+                    </form>
+                </section>
+                <section className="testimonials">
+                    <h2>Customer Testimonials</h2>
+                    <p>What our customers say about us.</p>
+                </section>
+                <section className="contact">
+                    <h2>Contact Us</h2>
+                    <p>Get in touch with us for more information.</p>
+                </section>
             </div>
-            <section className="about">
-                <h2>About Us</h2>
-                <p>At HotPot, we are dedicated to serving authentic dishes with a modern twist, providing a warm atmosphere for families and friends.</p>
-            </section>
-            <section className="menu">
-                <h2>Menu Preview</h2>
-                <div className="menu">
-                    <div className="menu-item">
-                        <h3>Spicy Noodle Soup</h3>
-                        <p>$12.99</p>
-                        <p>A flavorful broth with just the right amount of heat.</p>
-                    </div>
-                    <div className="menu-item">
-                        <h3>Szechuan Dumplings</h3>
-                        <p>$8.99</p>
-                        <p>Delicately spiced and served with a tangy sauce.</p>
-                    </div>
-                    <div className="menu-item">
-                        <h3>Sizzling Hot Pot</h3>
-                        <p>$20.99</p>
-                        <p>An interactive dining experience with fresh ingredients.</p>
-                    </div>
-                </div>
-            </section>
-            <section className="reservation">
-                <h2>Reservation Options</h2>
-                <p>Reserve your table now and enjoy a delightful evening!</p>
-                <button className="cta">Book Now</button>
-            </section>
-            <section className="testimonials">
-                <h2>Customer Testimonials</h2>
-                <p>“Best dining experience ever! The staff is incredibly friendly.” - A satisfied customer</p>
-            </section>
-            <footer>
-                <p>Follow us on social media for the latest updates!</p>
-                <p>Contact: contact@hotpot.com</p>
+            <footer className="footer">
+                <p>&copy; 2023 HotPot. All rights reserved.</p>
             </footer>
         </div>
     );
-};
+}
 
-export default HotPotLandingPage;
+export default App;
