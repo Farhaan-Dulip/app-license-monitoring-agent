@@ -1,45 +1,41 @@
-import React from 'react';
 import './App.css';
 
 const HotPotLandingPage = () => {
-    return (
-        <div className="container">
-            <div className="hero">
-                <h1>Welcome to HotPot</h1>
-                <p>Experience modern dining like never before</p>
-                <button className="cta-button">Make a Reservation</button>
-            </div>
-            <div className="section" id="about">
-                <h2>About Us</h2>
-                <p>HotPot was founded with the mission to provide a unique dining experience filled with flavors and ambiance. Join us for a meal that feels like home.</p>
-            </div>
-            <div className="section" id="menu">
-                <h2>Featured Dishes</h2>
-                <div className="grid">
-                    <div className="dish">Dish 1</div>
-                    <div className="dish">Dish 2</div>
-                    <div className="dish">Dish 3</div>
-                    <div className="dish">Dish 4</div>
-                </div>
-            </div>
-            <div className="section" id="reservation">
-                <h2>Reservation</h2>
-                <p>Secure your table now!</p>
-                <button className="cta-button">Make a Reservation</button>
-            </div>
-            <div className="section" id="testimonials">
-                <h2>What Our Customers Say</h2>
-                <blockquote>
-                    “The best dining experience in town!” - John Doe
-                </blockquote>
-            </div>
-            <div className="section" id="contact">
-                <h2>Contact Us</h2>
-                <p>Address: 123 Flavor St, Food City</p>
-                <p>Follow us on social media!</p>
-            </div>
-        </div>
-    );
+  return (
+    <div>
+      <header>
+        <h1>HotPot</h1>
+        <h2>Your modern dining experience</h2>
+      </header>
+      <section className="hero">
+        <h1>Welcome to HotPot</h1>
+        <p>Experience comfort food like never before!</p>
+      </section>
+      <section className="about">
+        <h2>About Us</h2>
+        <p>At HotPot, we bring families and friends together over flavorful meals, serving dishes with a modern touch.</p>
+      </section>
+      <section className="menu">
+        <h2>Featured Dishes</h2>
+        <div className="card"><h3>Savory HotPot</h3><p>Our signature dish with unique flavors.</p></div>
+        <div className="card"><h3>Grilled Veggies</h3><p>Fresh seasonal vegetables grilled to perfection.</p></div>
+      </section>
+      <section className="reservation">
+        <h2>Make a Reservation</h2>
+        <button className="button" aria-label="Make a reservation">Make a Reservation</button>
+      </section>
+      <section className="testimonials">
+        <h2>Customer Reviews</h2>
+        <div className="card"><p>&quot;A delightful experience! The food was amazing.&quot; - Jane</p></div>
+        <div className="card"><p>&quot;The atmosphere is warm and inviting!&quot; - John</p></div>
+      </section>
+      <section className="contact">
+        <h2>Contact Us</h2>
+        <p>Email: contact@hotpot.com</p>
+        <p>Follow us on social media: Facebook | Instagram | Twitter</p>
+      </section>
+    </div>
+  );
 };
 
 export default HotPotLandingPage;
