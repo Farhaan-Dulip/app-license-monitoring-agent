@@ -1,6 +1,6 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-21T13:13:21.229Z",
+  "lastUpdated": "2026-07-21T14:22:07.278Z",
   "requests": [
     {
       "id": "req_001",
@@ -254,6 +254,68 @@
         "generated-app/src/App.jsx",
         "generated-app/src/App.css",
         "docs/design-to-react-req_009.md"
+      ]
+    },
+    {
+      "id": "req_010",
+      "request": "can you build a feedback form including input email and ratings, and text area for comments?",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-21",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "figma-agent/tastebuds-design-spec.json",
+      "figmaPluginPayloadPath": "figma-agent/tastebuds-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing-page",
+        "brandName": "TasteBuds",
+        "audience": "Food enthusiasts and potential restaurant customers",
+        "mood": "Inviting and warm",
+        "colorPalette": [
+          "#FF6347",
+          "#FFD700",
+          "#FFDE6D",
+          "#F5F5DC",
+          "#8B4513"
+        ],
+        "typography": "Poppins",
+        "sections": [
+          "Hero Section with restaurant name and tagline",
+          "About Us Section with a brief description of the restaurant",
+          "Menu Highlights Section showcasing popular dishes",
+          "Customer Feedback Section with a form for ratings and comments"
+        ],
+        "primaryCta": "Give Feedback",
+        "acceptanceCriteria": [
+          "Feedback form inputs must include email",
+          "rating selection",
+          "and comments text area. The form should validate email format and ensure all fields are completed before submission."
+        ],
+        "implementationPlan": [
+          "Design the feedback form in Figma",
+          "then convert the design into a responsive React component with state management for form submission."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "This React application provides a feedback form for users to submit their email, rating, and comments about the restaurant. The form includes validation to ensure all fields are filled out correctly. The design is inspired by the TasteBuds branding and mood from the Figma artifact.",
+      "acceptanceCriteria": [
+        "Feedback form inputs must include email",
+        "rating selection",
+        "and comments text area. The form should validate email format and ensure all fields are completed before submission."
+      ],
+      "implementationPlan": [
+        "Design the feedback form in Figma",
+        "then convert the design into a responsive React component with state management for form submission."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>TasteBuds Feedback Form</title>\n    <style>\n        body { font-family: 'Poppins', sans-serif; margin: 0; padding: 20px; background-color: #F5F5DC; color: #8B4513; }\n        h1 { color: #FF6347; }\n        .container { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }\n        .form-group { margin-bottom: 15px; }\n        label { display: block; margin-bottom: 5px; }\n        input[type=\"email\"], input[type=\"number\"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }\n        input[type=\"number\"] { -moz-appearance: textfield; }\n        input[type=\"number\"]::-webkit-outer-spin-button, input[type=\"number\"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }\n        button { background-color: #FF6347; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }\n        button:hover { background-color: #FF4500; }\n        @media (max-width: 600px) { .container { padding: 15px; } }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <h1>Feedback Form</h1>\n        <form>\n            <div class=\"form-group\">\n                <label for=\"email\">Email</label>\n                <input type=\"email\" id=\"email\" required placeholder=\"Enter your email\" />\n            </div>\n            <div class=\"form-group\">\n                <label for=\"rating\">Rating</label>\n                <input type=\"number\" id=\"rating\" min=\"1\" max=\"5\" placeholder=\"Rate from 1 to 5\" required />\n            </div>\n            <div class=\"form-group\">\n                <label for=\"comments\">Comments</label>\n                <textarea id=\"comments\" rows=\"4\" required placeholder=\"Your comments...\"></textarea>\n            </div>\n            <button type=\"submit\">Give Feedback</button>\n        </form>\n    </div>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_010.md"
       ]
     }
   ]
