@@ -1,51 +1,51 @@
-import React from 'react';
 import './App.css';
 
-const EcoFutureLandingPage = () => {
-    return (
-        <div className="container">
-            <header className="hero">
-                <h1>Welcome to EcoFuture</h1>
-                <p>Join us in making a positive impact on the environment.</p>
-                <button className="cta">Join the Movement</button>
-            </header>
-            <section className="section">
-                <h2>About Us</h2>
-                <p>EcoFuture is dedicated to promoting environmental sustainability through innovative initiatives.</p>
-            </section>
-            <section className="section">
-                <h2>Our Initiatives</h2>
-                <p>Learn about our current projects aimed at improving our planet.</p>
-            </section>
-            <section className="section">
-                <h2>Get Involved</h2>
-                <p>Discover ways you can volunteer or donate to our cause.</p>
-            </section>
-            <section className="section">
-                <h2>Testimonials</h2>
-                <blockquote>"EcoFuture's work is inspiring!" - Supporter</blockquote>
-            </section>
-            <section className="section">
-                <h2>Blog</h2>
-                <p>Read our latest articles on environmental topics.</p>
-            </section>
-            <section className="section">
-                <h2>Contact Us</h2>
-                <form>
-                    <div className="form-group">
-                        <input type="text" placeholder="Your Name" required />
-                    </div>
-                    <div className="form-group">
-                        <input type="email" placeholder="Your Email" required />
-                    </div>
-                    <div className="form-group">
-                        <textarea placeholder="Your Message" required></textarea>
-                    </div>
-                    <button type="submit" className="cta">Send Message</button>
-                </form>
-            </section>
-        </div>
-    );
+const App = () => {
+  return (
+    <div>
+      <header>
+        <h1>Welcome to HotPot!</h1>
+        <p>Experience modern dining with a touch of warmth.</p>
+      </header>
+      <div className="container">
+        <section className="about">
+          <h2>About Us</h2>
+          <p>At HotPot, we believe in creating a delightful experience for families and friends. Our mission is to bring people together through delicious food!</p>
+        </section>
+        <section className="menu">
+          <h2>Featured Dishes</h2>
+          <div className="card">
+            <h3>Spicy Noodle Bowl</h3>
+            <p>A fiery mix of noodles and vegetables.</p>
+          </div>
+          <div className="card">
+            <h3>Grilled Vegetable Platter</h3>
+            <p>A colorful assortment of grilled vegetables.</p>
+          </div>
+        </section>
+        <section className="reservations">
+          <h2>Make a Reservation</h2>
+          <button className="button">Reserve Now</button>
+        </section>
+        <section className="testimonials">
+          <h2>What Our Customers Say</h2>
+          <div className="card">
+            <h3>Jane D.</h3>
+            <p>Loved the ambiance and the food!</p>
+          </div>
+          <div className="card">
+            <h3>Mark C.</h3>
+            <p>Best restaurant experience I've had recently.</p>
+          </div>
+        </section>
+        <section className="contact">
+          <h2>Contact Us</h2>
+          <p>Address: 123 Flavor St, Food City</p>
+          <p>Follow us on social media!</p>
+        </section>
+      </div>
+    </div>
+  );
 };
 
-export default EcoFutureLandingPage;
+export default App;
