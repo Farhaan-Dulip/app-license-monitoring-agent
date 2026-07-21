@@ -1,14 +1,78 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Roboto', sans-serif; background-color: #E8F5E9; color: #333; line-height: 1.6; }
-h1, h2, h3 { margin-bottom: 1rem; }
-.container { max-width: 1200px; margin: auto; padding: 1rem; }
-.hero { background-color: #4CAF50; color: white; text-align: center; padding: 50px 20px; border-radius: 10px; }
-.section { margin: 2rem 0; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-.cta { background-color: #FFAB91; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
-.cta:hover { background-color: #f47c7c; }
-.form-group { margin: 1rem 0; }
-input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-input:focus, textarea:focus { border-color: #4CAF50; outline: none; }
-@media (max-width: 768px) {
-    .hero { padding: 30px 10px; }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #FFFFFF;
+    line-height: 1.6;
+}
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: auto;
+}
+header {
+    text-align: center;
+    padding: 2rem 0;
+    background-color: #FF6347;
+    color: #FFFFFF;
+}
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+p {
+    font-size: 1.2rem;
+}
+section {
+    padding: 2rem 0;
+}
+.about, .menu, .reservations, .testimonials, .contact {
+    background-color: #F8F8F8;
+    margin: 1rem 0;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.button {
+    background-color: #FFD700;
+    color: #4B0082;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.button:hover {
+    background-color: #FF6347;
+    color: #FFFFFF;
+}
+.card {
+    background: #FFFFFF;
+    margin: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.card h3 {
+    margin-bottom: 1rem;
+}
+@media (min-width: 768px) {
+h1 {
+    font-size: 3rem;
+}
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.about, .menu, .reservations, .testimonials, .contact {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+}
 }
