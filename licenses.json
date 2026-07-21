@@ -1,14 +1,14 @@
 {
   "organization": "Enterprise Dev Corp",
-  "lastUpdated": "2026-07-20T16:22:53.139Z",
+  "lastUpdated": "2026-07-21T05:36:52.543Z",
   "licenses": [
     {
       "id": "lic_001",
       "application": "MuleSoft Anypoint",
-      "assignedTo": "nimal@company.com",
+      "assignedTo": "jhon@company.com",
       "department": "Integrations",
       "status": "active",
-      "lastActiveDate": "2026-07-20"
+      "lastActiveDate": "2026-07-21"
     },
     {
       "id": "lic_002",
