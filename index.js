@@ -208,6 +208,18 @@ function buildApprovalUiUrl(results, ticketId, githubPr) {
 function buildGeneratedUiUrl(results) {
     return `${getPublicBaseUrl()}/generated/${encodeURIComponent(results.requestId)}`;
 }
+// Creates a Vite middleware server for the generated React app so previews use App.jsx and App.css.
+async function createGeneratedAppViteServer() {
+    const { createServer } = await import('vite');
+    return createServer({
+        root: GENERATED_APP_DIR,
+        appType: 'custom',
+        logLevel: 'error',
+        server: {
+            middlewareMode: true
+        }
+    });
+}
 // Calculates how many days have passed since a delivery record was last updated so stale requests can be reused.
 function daysSince(dateValue, now = new Date()) {
     const timestamp = Date.parse(dateValue);
@@ -525,13 +537,37 @@ function normalizeReactGeneration(rawGeneration, input) {
         content: file.content
     }))
         .filter((file) => file.path && file.content);
+    const appCss = normalizedFiles.find((file) => file.path === 'generated-app/src/App.css')?.content ?? '';
+    const rawPreviewHtml = valueToText(rawRecord.previewHtml ?? rawRecord.html ?? rawRecord.standaloneHtml, '');
+    const previewHtml = ensureStandalonePreviewHtml(rawPreviewHtml, appCss, input.designBrief);
     const normalizedGeneration = {
         summary: valueToText(rawRecord.summary, `Generated React UI for ${input.designBrief.brandName}.`),
         componentName: valueToText(rawRecord.componentName, `${slugify(input.designBrief.brandName).replace(/(^|-)([a-z])/g, (_match, _dash, char) => char.toUpperCase())}GeneratedPage`),
-        previewHtml: valueToText(rawRecord.previewHtml ?? rawRecord.html ?? rawRecord.standaloneHtml, ''),
+        previewHtml,
         generatedFiles: normalizedFiles
     };
     return reactGenerationResultSchema.parse(normalizedGeneration);
+}
+// Ensures the Railway preview is a fully self-contained HTML document with inline styling.
+function ensureStandalonePreviewHtml(previewHtml, appCss, brief) {
+    const hasHtmlDocument = /<!doctype html|<html[\s>]/i.test(previewHtml);
+    const bodyMarkup = previewHtml.trim() || `<main><h1>${escapeHtml(brief.brandName)}</h1><p>${escapeHtml(brief.mood)}</p></main>`;
+    const css = appCss.trim() || [
+        'body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f8fafc; color: #111827; }',
+        'main { max-width: 960px; margin: 0 auto; padding: 48px 24px; }',
+        'input, textarea, button { font: inherit; }'
+    ].join('\n');
+    const html = hasHtmlDocument
+        ? bodyMarkup.replace(/<link[^>]+href=["'](?:\.\/)?App\.css["'][^>]*>/gi, '')
+        : `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(brief.brandName)}</title></head><body>${bodyMarkup}</body></html>`;
+    if (/<style[\s>]/i.test(html)) {
+        return html;
+    }
+    const styleTag = `<style>\n${css}\n</style>`;
+    if (/<\/head>/i.test(html)) {
+        return html.replace(/<\/head>/i, `${styleTag}\n</head>`);
+    }
+    return `${styleTag}\n${html}`;
 }
 // Creates Figma design artifacts from the LLM brief and writes the plugin payload through MCP.
 async function createFigmaDesignFromBrief(input) {
@@ -586,6 +622,7 @@ async function generateReactFromFigmaDesign(input) {
         'generatedFiles must include exactly these app source files: generated-app/src/App.jsx and generated-app/src/App.css.',
         'Do not include package.json, index.html, or main.jsx; the runtime provides those infrastructure files.',
         'previewHtml must be a complete standalone HTML document that visually matches the generated React UI and can be served directly from Railway.',
+        'previewHtml must include all CSS inside a <style> tag in the <head>. Do not use <link rel="stylesheet">, App.css links, external fonts, or remote assets.',
         'Use React function components and plain CSS only. Do not import external UI libraries or image assets.',
         'App.jsx must import ./App.css and export a default component.',
         'CSS must be responsive for mobile and desktop and must avoid text overlap.',
@@ -1559,6 +1596,28 @@ function renderGeneratedUi(requestId) {
 </body>
 </html>`;
 }
+// Locates the delivery record backing a generated preview route.
+function getDeliveryRecordForRequest(requestId) {
+    const database = deliveryDatabaseSchema.parse(JSON.parse(fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')));
+    const deliveryRecord = requestId === 'latest'
+        ? [...database.requests].reverse().find((item) => item.generatedFiles?.includes('generated-app/src/App.jsx'))
+        : database.requests.find((item) => item.id === requestId);
+    if (!deliveryRecord) {
+        throw new Error(`No delivery request was found for request ${requestId}.`);
+    }
+    return deliveryRecord;
+}
+// Serves the generated React app through Vite so the preview uses App.jsx, App.css, and Vite transforms.
+async function renderGeneratedViteUi(viteServer, requestUrl, requestId) {
+    const deliveryRecord = getDeliveryRecordForRequest(requestId);
+    const indexPath = path.join(GENERATED_APP_DIR, 'index.html');
+    if (!fs.existsSync(indexPath)) {
+        throw new Error(`Generated Vite app index.html was not found for request ${deliveryRecord.id}.`);
+    }
+    const sourceHtml = fs.readFileSync(indexPath, 'utf-8');
+    const htmlWithMetadata = sourceHtml.replace('<div id="root"></div>', `<div id="root" data-request-id="${escapeHtml(deliveryRecord.id)}" data-request="${escapeHtml(deliveryRecord.request)}"></div>`);
+    return viteServer.transformIndexHtml(requestUrl, htmlWithMetadata);
+}
 // Generates the Railway-hosted approval page for a specific AI engineering delivery request.
 function renderApprovalUi(requestId, request) {
     const database = deliveryDatabaseSchema.parse(JSON.parse(fs.readFileSync(DELIVERY_DATABASE_PATH, 'utf-8')));
@@ -1719,11 +1778,12 @@ async function updateGitHubPrFromApproval(prOwner, prRepo, prNumberValue, decisi
     });
     return `GitHub PR #${pull_number} closed without merge.`;
 }
-// Starts the Express service, exposes Slack intake routes, approval UI routes, and health checks.
-function startServer() {
+// Starts the Express service, exposes Slack intake routes, Vite generated UI routes, approval routes, and health checks.
+async function startServer() {
     const app = express();
     const port = Number(process.env.PORT ?? 3000);
     const shouldUseExactPort = Boolean(process.env.PORT);
+    const generatedAppViteServer = await createGeneratedAppViteServer();
     app.use(express.urlencoded({
         extended: false,
         verify: (request, _response, buffer) => {
@@ -1757,6 +1817,7 @@ function startServer() {
     app.get('/health', (_request, response) => {
         sendJson(response, 200, { status: 'ok' });
     });
+    app.use(generatedAppViteServer.middlewares);
     // Figma plugin endpoints expose generated design specs to a live Figma plugin session.
     app.options('/api/figma/session/:requestId', (_request, response) => {
         response.set('Access-Control-Allow-Origin', '*');
@@ -1777,9 +1838,9 @@ function startServer() {
         }
     });
     // Generated UI endpoint serves the live Railway page returned to Slack for each prompt.
-    app.get('/generated/:requestId', (request, response) => {
+    app.get('/generated/:requestId', async (request, response) => {
         try {
-            response.status(200).type('html').send(renderGeneratedUi(request.params.requestId));
+            response.status(200).type('html').send(await renderGeneratedViteUi(generatedAppViteServer, request.originalUrl, request.params.requestId));
         }
         catch (error) {
             sendJson(response, 404, {
@@ -1876,6 +1937,6 @@ async function bootstrap() {
             console.error('Simulation run encountered an operational fault:', getErrorMessage(error));
         }
     }
-    startServer();
+    await startServer();
 }
 bootstrap();
