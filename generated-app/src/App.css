@@ -1,80 +1,24 @@
-body {
-    font-family: 'Open Sans', sans-serif;
-    background-color: #FFFFFF;
-    color: #581845;
-    margin: 0;
-}
+/* Global Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Open Sans', sans-serif; background: #FFFFFF; color: #333; }
 
-header {
-    background: #FF5733;
-    padding: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+header { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #FF5733; color: white; }
+nav ul { display: flex; list-style: none; }
+nav ul li { margin-left: 20px; }
+nav ul li a { color: white; text-decoration: none; }
 
-h1 {
-    color: #FFC300;
-}
+.hero { background: #FFC300; text-align: center; padding: 50px 20px; }
+.hero h1 { font-size: 2.5rem; margin-bottom: 10px; }
 
-nav {
-    display: flex;
-}
+.menu, .about, .testimonials, .contact { padding: 40px 20px; }
+.menu h2, .about h2, .testimonials h2, .contact h2 { margin-bottom: 20px; }
+.menu-items { display: flex; justify-content: space-around; flex-wrap: wrap; }
+.menu-item { width: 30%; border: 1px solid #C70039; margin: 10px; padding: 15px; border-radius: 10px; text-align: center; }
 
-nav a {
-    color: white;
-    margin: 0 15px;
-    text-decoration: none;
-    font-weight: bold;
-}
+.cta-button { background: #581845; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; transition: background 0.3s; }
+.cta-button:hover { background: #C70039; }
 
-.hero {
-    text-align: center;
-    padding: 80px 20px;
-    background: #FFC300;
-    color: #581845;
-}
-
-.menu {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-    padding: 20px;
-}
-
-.about, .testimonials, .contact {
-    background: #F7F7F7;
-    margin: 20px 0;
-    padding: 20px;
-    border-radius: 8px;
-}
-
-.cta {
-    margin: 20px 0;
-}
-
-button {
-    background: #C70039;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-button:hover {
-    background: #581845;
-}
-
-footer {
-    background: #FF5733;
-    color: white;
-    text-align: center;
-    padding: 20px;
-}
-
-@media (max-width: 600px) {
-    .hero h2 {
-        font-size: 1.5rem;
-    }
+footer { background: #FF5733; color: white; text-align: center; padding: 20px; position: relative; }
+@media (max-width: 768px) {
+    .menu-item { width: 80%; }
 }
