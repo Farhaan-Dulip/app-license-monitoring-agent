@@ -1,0 +1,122 @@
+{
+  "brief": {
+    "pageType": "landing",
+    "brandName": "Farhan's Restaurant",
+    "audience": "Food enthusiasts, local residents, families, and professionals looking for dining options.",
+    "mood": "Inviting and modern with a touch of warmth.",
+    "colorPalette": [
+      "#FF5733",
+      "#FFC300",
+      "#C70039",
+      "#581845",
+      "#FFFFFF"
+    ],
+    "typography": "Open Sans, sans-serif",
+    "sections": [
+      "Header with logo and navigation",
+      "Hero section with a welcoming image and tagline",
+      "Menu overview with featured dishes",
+      "About us section highlighting the restaurant's story",
+      "Testimonials from customers",
+      "Contact information and location map",
+      "Footer with social media links"
+    ],
+    "primaryCta": "Make a Reservation",
+    "acceptanceCriteria": [
+      "The page should be visually appealing",
+      "easy to navigate",
+      "and fully responsive."
+    ],
+    "implementationPlan": [
+      "Design the landing page in Figma",
+      "gather feedback",
+      "and then convert to responsive React components."
+    ],
+    "riskLevel": "medium"
+  },
+  "designSystem": {
+    "palette": [
+      "#FF5733",
+      "#FFC300",
+      "#C70039",
+      "#581845",
+      "#FFFFFF"
+    ],
+    "typography": "Open Sans, sans-serif",
+    "spacingScale": [
+      "8px",
+      "12px",
+      "16px",
+      "24px",
+      "32px",
+      "48px",
+      "72px",
+      "96px"
+    ],
+    "cornerRadius": [
+      "8px",
+      "12px",
+      "20px",
+      "28px"
+    ],
+    "elevation": [
+      "subtle card shadow",
+      "hero media shadow",
+      "sticky nav blur"
+    ]
+  },
+  "layoutBlueprint": {
+    "desktop": "1440px responsive experience with clear navigation, high-impact hero, intentional section hierarchy, supporting content blocks, conversion-focused panels, and a polished footer.",
+    "tablet": "Selective two-column layouts that collapse gracefully while preserving hierarchy and spacing rhythm.",
+    "mobile": "Single-column flow with readable typography, full-width CTAs, stacked cards, and no content overlap.",
+    "qualityBar": "The generated React implementation should feel production-ready and domain-appropriate, not a wireframe or plain form."
+  },
+  "interactionNotes": [
+    "Primary CTA needs hover, active, and focus-visible states.",
+    "Inputs/selects/buttons must be custom styled if the design includes a form.",
+    "Cards should have intentional spacing, hierarchy, and responsive dimensions.",
+    "Avoid browser-default controls and sparse one-panel layouts."
+  ],
+  "nodes": [
+    {
+      "name": "Landing Page Frame",
+      "type": "frame",
+      "description": "landing desktop frame with responsive design guidance, brand palette, typographic hierarchy, and conversion-focused content sections."
+    },
+    {
+      "name": "Header with logo and navigation",
+      "type": "section",
+      "description": "High-fidelity section for Header with logo and navigation. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Hero section with a welcoming image and tagline",
+      "type": "section",
+      "description": "High-fidelity section for Hero section with a welcoming image and tagline. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Menu overview with featured dishes",
+      "type": "section",
+      "description": "High-fidelity section for Menu overview with featured dishes. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "About us section highlighting the restaurant's story",
+      "type": "section",
+      "description": "High-fidelity section for About us section highlighting the restaurant's story. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Testimonials from customers",
+      "type": "section",
+      "description": "High-fidelity section for Testimonials from customers. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Contact information and location map",
+      "type": "section",
+      "description": "High-fidelity section for Contact information and location map. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    },
+    {
+      "name": "Footer with social media links",
+      "type": "section",
+      "description": "High-fidelity section for Footer with social media links. Include layout intent, visual hierarchy, spacing, CTA behavior, and responsive treatment."
+    }
+  ]
+}

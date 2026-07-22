@@ -1,6 +1,6 @@
 {
   "organization": "AI Engineering Delivery",
-  "lastUpdated": "2026-07-22T06:40:04.462Z",
+  "lastUpdated": "2026-07-22T06:46:43.298Z",
   "requests": [
     {
       "id": "req_001",
@@ -240,6 +240,87 @@
         "The form captures email and comments correctly, but the rating system does not have associated functionality for capturing user input.",
         "UI responsiveness is not fully tested, especially for smaller screens and varying input content.",
         "The rating system does not allow user interaction (i.e., selecting a rating), which is critical for functionality."
+      ]
+    },
+    {
+      "id": "req_004",
+      "request": "build me a landing page for a resturant name Farhan's resturant",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-22",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "generated-artifacts/figma/farhan-s-restaurant-design-spec.json",
+      "figmaPluginPayloadPath": "generated-artifacts/figma/farhan-s-restaurant-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing",
+        "brandName": "Farhan's Restaurant",
+        "audience": "Food enthusiasts, local residents, families, and professionals looking for dining options.",
+        "mood": "Inviting and modern with a touch of warmth.",
+        "colorPalette": [
+          "#FF5733",
+          "#FFC300",
+          "#C70039",
+          "#581845",
+          "#FFFFFF"
+        ],
+        "typography": "Open Sans, sans-serif",
+        "sections": [
+          "Header with logo and navigation",
+          "Hero section with a welcoming image and tagline",
+          "Menu overview with featured dishes",
+          "About us section highlighting the restaurant's story",
+          "Testimonials from customers",
+          "Contact information and location map",
+          "Footer with social media links"
+        ],
+        "primaryCta": "Make a Reservation",
+        "acceptanceCriteria": [
+          "The page should be visually appealing",
+          "easy to navigate",
+          "and fully responsive."
+        ],
+        "implementationPlan": [
+          "Design the landing page in Figma",
+          "gather feedback",
+          "and then convert to responsive React components."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "A responsive landing page for Farhan's Restaurant, designed to attract food enthusiasts and local patrons with an inviting and modern aesthetic, featuring clear navigation, a hero section, menu overview, about us segment, testimonials, contact information, and social media links.",
+      "acceptanceCriteria": [
+        "The page should be visually appealing",
+        "easy to navigate",
+        "and fully responsive."
+      ],
+      "implementationPlan": [
+        "Design the landing page in Figma",
+        "gather feedback",
+        "and then convert to responsive React components."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Farhan's Restaurant</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            font-family: 'Open Sans', sans-serif;\n            background-color: #FFFFFF;\n            color: #444;\n        }\n        header {\n            background-color: #FF5733;\n            padding: 1rem;\n            text-align: center;\n        }\n        nav ul {\n            list-style: none;\n            display: flex;\n            justify-content: center;\n            margin-top: 0.5rem;\n        }\n        nav ul li {\n            margin: 0 1rem;\n        }\n        nav a {\n            text-decoration: none;\n            color: #FFFFFF;\n            font-weight: bold;\n            transition: color 0.3s;\n        }\n        nav a:hover {\n            color: #FFC300;\n        }\n        .hero {\n            background: url('https://via.placeholder.com/800x300') center/cover;\n            height: 300px;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            color: #FFFFFF;\n            text-align: center;\n        }\n        .hero h1 {\n            font-size: 2.5rem;\n        }\n        .menu, .about, .testimonials, .contact {\n            padding: 2rem 1rem;\n            max-width: 800px;\n            margin: auto;\n        }\n        .menu h2, .about h2, .testimonials h2, .contact h2 {\n            margin-bottom: 1rem;\n        }\n        .card {\n            background: #FFC300;\n            margin: 1rem 0;\n            padding: 1rem;\n            border-radius: 8px;\n        }\n        footer {\n            text-align: center;\n            padding: 1rem;\n            background-color: #581845;\n            color: white;\n        }\n        @media (max-width: 600px) {\n            nav ul {\n                flex-direction: column;\n            }\n            .hero h1 {\n                font-size: 1.8rem;\n            }\n        }\n    </style>\n</head>\n<body>\n    <header>\n        <h1>Farhan's Restaurant</h1>\n        <nav>\n            <ul>\n                <li><a href=\"#menu\">Menu</a></li>\n                <li><a href=\"#about\">About</a></li>\n                <li><a href=\"#testimonials\">Testimonials</a></li>\n                <li><a href=\"#contact\">Contact</a></li>\n            </ul>\n        </nav>\n    </header>\n    <section class=\"hero\">\n        <h1>Welcome to Farhan's Restaurant!</h1>\n    </section>\n    <section id=\"menu\" class=\"menu\">\n        <h2>Featured Dishes</h2>\n        <div class=\"card\">Pasta Primavera</div>\n        <div class=\"card\">Grilled Salmon</div>\n        <div class=\"card\">Chocolate Lava Cake</div>\n    </section>\n    <section id=\"about\" class=\"about\">\n        <h2>About Us</h2>\n        <p>At Farhan's, we strive to bring you the freshest ingredients and the finest dining experience.</p>\n    </section>\n    <section id=\"testimonials\" class=\"testimonials\">\n        <h2>What Our Customers Say</h2>\n        <div class=\"card\">\"Best restaurant in town!\" - John Doe</div>\n        <div class=\"card\">\"A culinary delight!\" - Jane Smith</div>\n    </section>\n    <section id=\"contact\" class=\"contact\">\n        <h2>Contact Us</h2>\n        <p>For reservations, email us at: reservations@farhansrestaurant.com</p>\n    </section>\n    <footer>\n        <p>Follow us on social media!</p>\n        <p>&copy; 2023 Farhan's Restaurant</p>\n    </footer>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_004.md"
+      ],
+      "uiQualityScore": 80,
+      "uiQualityFindings": [
+        "The landing page lacks visual hierarchy and design polish. Key sections are present",
+        "but the layout and responsiveness need improvement for a better user experience.",
+        "The component is functional, but lacks prop types or TypeScript integration for better type safety.",
+        "The CSS is clean, but the hero section could use more semantic HTML elements. Flex properties are used correctly.",
+        "The structure is maintainable, but will benefit from breaking the App component into smaller, reusable components.",
+        "Header and sections are not using appropriate semantic HTML structures; HTML roles and aria-labels are missing.",
+        "The media queries are present but the layout could be tested across various screen resolutions for better adaptability.",
+        "Use of semantic tags is not fully adhered to; consider using nav, main, and section elements effectively.",
+        "The design feels somewhat generic and can be enhanced with more engaging visuals and interactive elements.",
+        "Navigation works, but it could use clearer call-to-action buttons and possibly a sticky navigation for better accessibility.",
+        "Some responsiveness is implemented, but overall, cross-device testing needed to ensure all elements scale correctly."
       ]
     }
   ]
