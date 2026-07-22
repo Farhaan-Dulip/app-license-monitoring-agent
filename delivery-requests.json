@@ -1,6 +1,6 @@
 {
   "organization": "AI Engineering Delivery",
-  "lastUpdated": "2026-07-21T23:06:28.465Z",
+  "lastUpdated": "2026-07-22T06:39:05.975Z",
   "requests": [
     {
       "id": "req_001",
@@ -161,6 +161,72 @@
         "The landing page is responsive and functional, but it lacks visually compelling elements that communicate the restaurant's identity.",
         "The primary call to action is included, but the reservation section could benefit from more complexity, like a date/time picker or a calendar integration.",
         "Some specified sections like Testimonials and Contact Us are present but lack engaging content or interactivity."
+      ]
+    },
+    {
+      "id": "req_003",
+      "request": "I need to build a modern feedback form which includes input field for email, ratings and comments section. I need a proper UI layout.",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-22",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "generated-artifacts/figma/feedback-hub-design-spec.json",
+      "figmaPluginPayloadPath": "generated-artifacts/figma/feedback-hub-plugin-code.js",
+      "designBrief": {
+        "pageType": "feedbackForm",
+        "brandName": "Feedback Hub",
+        "audience": "Website users seeking to provide feedback",
+        "mood": "modern",
+        "colorPalette": [
+          "#4A90E2",
+          "#E94E77",
+          "#F5A623",
+          "#7ED321",
+          "#B8E1F3"
+        ],
+        "typography": "Arial, sans-serif",
+        "sections": [
+          "Email Input Field",
+          "Rating System (1-5 Stars)",
+          "Comments Text Area",
+          "Submit Button"
+        ],
+        "primaryCta": "Submit Feedback",
+        "acceptanceCriteria": [
+          "The form captures email",
+          "ratings",
+          "and comments",
+          "all fields validate correctly",
+          "UI is responsive."
+        ],
+        "implementationPlan": [
+          "Design in Figma",
+          "then export assets and implement in React using functional components and hooks."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "A modern feedback form for 'Feedback Hub' with sections for email input, a rating system, comments, and a submit button. The design emphasizes responsive layout and visual quality.",
+      "acceptanceCriteria": [
+        "The form captures email",
+        "ratings",
+        "and comments",
+        "all fields validate correctly",
+        "UI is responsive."
+      ],
+      "implementationPlan": [
+        "Design in Figma",
+        "then export assets and implement in React using functional components and hooks."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Feedback Hub</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            background-color: #B8E1F3;\n            font-family: Arial, sans-serif;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            height: 100vh;\n            padding: 20px;\n        }\n        .container {\n            background: white;\n            border-radius: 8px;\n            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);\n            padding: 30px;\n            width: 100%;\n            max-width: 400px;\n        }\n        h1 {\n            color: #4A90E2;\n            margin-bottom: 20px;\n            text-align: center;\n        }\n        .form-group {\n            margin-bottom: 20px;\n        }\n        label {\n            display: block;\n            margin-bottom: 5px;\n            font-weight: bold;\n        }\n        input[type=\"email\"], textarea {\n            width: 100%;\n            padding: 10px;\n            border: 1px solid #ccc;\n            border-radius: 4px;\n            transition: border-color 0.3s;\n        }\n        input[type=\"email\"]:focus, textarea:focus {\n            border-color: #4A90E2;\n            outline: none;\n        }\n        input[type=\"radio\"] {\n            margin-right: 5px;\n        }\n        .rating {\n            display: flex;\n            margin-bottom: 20px;\n            justify-content: center;\n        }\n        .star {\n            cursor: pointer;\n            font-size: 24px;\n            color: #E94E77;\n        }\n        button {\n            background-color: #4A90E2;\n            color: white;\n            border: none;\n            padding: 10px 15px;\n            border-radius: 4px;\n            cursor: pointer;\n            transition: background-color 0.3s;\n            width: 100%;\n        }\n        button:hover {\n            background-color: #005BB5;\n        }\n        @media (max-width: 480px) {\n            h1 {\n                font-size: 1.5em;\n            }\n            button {\n                padding: 10px;\n            }\n        }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <h1>Feedback Hub</h1>\n        <div class=\"form-group\">\n            <label for=\"email\">Email</label>\n            <input type=\"email\" id=\"email\" required>\n        </div>\n        <div class=\"form-group\">\n            <label>Rating</label>\n            <div class=\"rating\">\n                <label class=\"star\">★</label>\n                <label class=\"star\">★</label>\n                <label class=\"star\">★</label>\n                <label class=\"star\">★</label>\n                <label class=\"star\">★</label>\n            </div>\n        </div>\n        <div class=\"form-group\">\n            <label for=\"comments\">Comments</label>\n            <textarea id=\"comments\" rows=\"4\" required></textarea>\n        </div>\n        <button type=\"submit\">Submit Feedback</button>\n    </div>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_003.md"
       ]
     }
   ]
