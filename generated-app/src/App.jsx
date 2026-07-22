@@ -1,28 +1,35 @@
 import './App.css';
+import { useState } from 'react';
 
 const FeedbackForm = () => {
+    const [rating, setRating] = useState(0);
+
+    const handleSubmit = (event) => {
+        event.preventDefault();
+        alert(`Feedback Submitted! Rating: ${rating}`);
+    };
+
     return (
         <div className="container">
             <h1>Feedback Hub</h1>
-            <div className="form-group">
-                <label htmlFor="email">Email</label>
+            <form onSubmit={handleSubmit}>
+                <label htmlFor="email">Email:</label>
                 <input type="email" id="email" required />
-            </div>
-            <div className="form-group">
-                <label>Rating</label>
+
+                <label>Rating:</label>
                 <div className="rating">
-                    <label className="star">★</label>
-                    <label className="star">★</label>
-                    <label className="star">★</label>
-                    <label className="star">★</label>
-                    <label className="star">★</label>
+                    {[1, 2, 3, 4, 5].map((value) => (
+                        <span key={value} className={`star ${value <= rating ? 'selected' : ''}`} onClick={() => setRating(value)}>
+                            ★
+                        </span>
+                    ))}
                 </div>
-            </div>
-            <div className="form-group">
-                <label htmlFor="comments">Comments</label>
+
+                <label htmlFor="comments">Comments:</label>
                 <textarea id="comments" rows="4" required></textarea>
-            </div>
-            <button type="submit">Submit Feedback</button>
+
+                <button type="submit">Submit Feedback</button>
+            </form>
         </div>
     );
 };
