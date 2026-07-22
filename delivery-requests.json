@@ -1,6 +1,6 @@
 {
   "organization": "AI Engineering Delivery",
-  "lastUpdated": "2026-07-22T06:40:04.462Z",
+  "lastUpdated": "2026-07-22T06:45:15.481Z",
   "requests": [
     {
       "id": "req_001",
@@ -240,6 +240,73 @@
         "The form captures email and comments correctly, but the rating system does not have associated functionality for capturing user input.",
         "UI responsiveness is not fully tested, especially for smaller screens and varying input content.",
         "The rating system does not allow user interaction (i.e., selecting a rating), which is critical for functionality."
+      ]
+    },
+    {
+      "id": "req_004",
+      "request": "build me a landing page for a resturant name Farhan's resturant",
+      "requester": "farhandulip05",
+      "workstream": "AI Engineering",
+      "status": "proposed",
+      "lastUpdatedAt": "2026-07-22",
+      "figmaUrl": null,
+      "figmaDesignSpecPath": "generated-artifacts/figma/farhan-s-restaurant-design-spec.json",
+      "figmaPluginPayloadPath": "generated-artifacts/figma/farhan-s-restaurant-plugin-code.js",
+      "designBrief": {
+        "pageType": "landing",
+        "brandName": "Farhan's Restaurant",
+        "audience": "Food enthusiasts, local residents, families, and professionals looking for dining options.",
+        "mood": "Inviting and modern with a touch of warmth.",
+        "colorPalette": [
+          "#FF5733",
+          "#FFC300",
+          "#C70039",
+          "#581845",
+          "#FFFFFF"
+        ],
+        "typography": "Open Sans, sans-serif",
+        "sections": [
+          "Header with logo and navigation",
+          "Hero section with a welcoming image and tagline",
+          "Menu overview with featured dishes",
+          "About us section highlighting the restaurant's story",
+          "Testimonials from customers",
+          "Contact information and location map",
+          "Footer with social media links"
+        ],
+        "primaryCta": "Make a Reservation",
+        "acceptanceCriteria": [
+          "The page should be visually appealing",
+          "easy to navigate",
+          "and fully responsive."
+        ],
+        "implementationPlan": [
+          "Design the landing page in Figma",
+          "gather feedback",
+          "and then convert to responsive React components."
+        ],
+        "riskLevel": "medium"
+      },
+      "llmSummary": "Landing page for Farhan's Restaurant that features a warm, inviting design catering to food enthusiasts, with sections including a header, hero image, menu overview, about us, testimonials, contact information, and a footer.",
+      "acceptanceCriteria": [
+        "The page should be visually appealing",
+        "easy to navigate",
+        "and fully responsive."
+      ],
+      "implementationPlan": [
+        "Design the landing page in Figma",
+        "gather feedback",
+        "and then convert to responsive React components."
+      ],
+      "riskLevel": "medium",
+      "generatedPreviewHtml": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Farhan's Restaurant</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            font-family: 'Open Sans', sans-serif;\n            line-height: 1.6;\n            background-color: #FFFFFF;\n            color: #581845;\n            padding: 10px;\n        }\n        header {\n            display: flex;\n            justify-content: space-between;\n            align-items: center;\n            padding: 20px;\n            background-color: #FF5733;\n        }\n        h1 {\n            color: #FFC300;\n        }\n        nav a {\n            color: #FFFFFF;\n            margin: 0 15px;\n            text-decoration: none;\n            font-weight: bold;\n        }\n        .hero {\n            text-align: center;\n            background: url('hero-image.jpg') no-repeat center center/cover;\n            padding: 100px 20px;\n            color: #FFFFFF;\n        }\n        .hero h2 {\n            font-size: 2.5rem;\n        }\n        .menu {\n            display: grid;\n            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));\n            gap: 20px;\n            padding: 20px;\n        }\n        .about, .testimonials, .contact {\n            padding: 20px;\n            background-color: #F7F7F7;\n            margin: 20px 0;\n            border-radius: 8px;\n        }\n        .cta {\n            text-align: center;\n            margin: 30px 0;\n        }\n        button {\n            background-color: #C70039;\n            color: white;\n            border: none;\n            padding: 10px 20px;\n            border-radius: 5px;\n            cursor: pointer;\n            transition: background 0.3s ease;\n        }\n        button:hover {\n            background-color: #581845;\n        }\n        footer {\n            text-align: center;\n            padding: 20px;\n            background-color: #FF5733;\n            color: #FFFFFF;\n        }\n        @media (max-width: 600px) {\n            .hero h2 {\n                font-size: 1.5rem;\n            }\n        }\n    </style>\n</head>\n<body>\n    <header>\n        <h1>Farhan's Restaurant</h1>\n        <nav>\n            <a href=\"#\">Home</a>\n            <a href=\"#menu\">Menu</a>\n            <a href=\"#about\">About Us</a>\n            <a href=\"#contact\">Contact</a>\n        </nav>\n    </header>\n    <section class=\"hero\">\n        <h2>Welcome to Farhan's Restaurant</h2>\n        <p>Your gourmet experience awaits.</p>\n        <div class=\"cta\">\n            <button>Make a Reservation</button>\n        </div>\n    </section>\n    <section id=\"menu\" class=\"menu\">\n        <h2>Featured Dishes</h2>\n        <div class=\"dish\">Pasta Primavera</div>\n        <div class=\"dish\">Grilled Salmon</div>\n        <div class=\"dish\">Cheeseburger</div>\n        <div class=\"dish\">Tiramisu</div>\n    </section>\n    <section id=\"about\" class=\"about\">\n        <h2>About Us</h2>\n        <p>At Farhan's Restaurant, we pride ourselves on using fresh ingredients to create unique dishes that will tantalize your taste buds.</p>\n    </section>\n    <section class=\"testimonials\">\n        <h2>Testimonials</h2>\n        <p>“Best food I’ve ever had!” - A satisfied customer</p>\n        <p>“A delightful experience from start to finish!” - Another happy diner</p>\n    </section>\n    <section id=\"contact\" class=\"contact\">\n        <h2>Contact Us</h2>\n        <p>Address: 123 Main St, Springfield</p>\n        <p>Email: contact@farhansrestaurant.com</p>\n    </section>\n    <footer>\n        <p>Follow us on social media!</p>\n        <p>&copy; 2023 Farhan's Restaurant</p>\n    </footer>\n</body>\n</html>",
+      "generatedFiles": [
+        "generated-app/package.json",
+        "generated-app/index.html",
+        "generated-app/src/main.jsx",
+        "generated-app/src/App.jsx",
+        "generated-app/src/App.css",
+        "docs/design-to-react-req_004.md"
       ]
     }
   ]
