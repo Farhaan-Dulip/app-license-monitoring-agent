@@ -13,10 +13,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@linear/sdk": "^88.2.0",
-    "@mastra/core": "^1.51.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@octokit/rest": "^22.0.1",
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.1",
     "dotenv": "^17.4.2",
@@ -24,8 +21,5 @@
     "mongodb": "^7.6.0",
     "typescript": "^7.0.2",
     "zod": "^3.25.76"
-  },
-  "devDependencies": {
-    "tsx": "^4.23.1"
   }
 }
