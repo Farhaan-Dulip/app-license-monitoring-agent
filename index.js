@@ -9,6 +9,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Mastra } from '@mastra/core/mastra';
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { Octokit } from '@octokit/rest';
+import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 dotenv.config();
@@ -179,6 +180,39 @@ async function initializeLicenseMcpClient() {
             ]
         };
     });
+    server.registerTool('find_license_availability', {
+        title: 'Find License Availability',
+        description: 'Returns aggregate inventory capacity and reclaim decisions for one application. No user or device identifiers are returned.',
+        inputSchema: {
+            appName: z.string().min(1).max(120)
+        }
+    }, async ({ appName }) => ({
+        content: [{ type: 'text', text: JSON.stringify(await getLicenseAvailabilityMetrics(appName)) }]
+    }));
+    server.registerTool('summarize_reclaimable_licenses', {
+        title: 'Summarize Reclaimable Licenses',
+        description: 'Returns reclaimable decision counts grouped by application without user or device identifiers.'
+    }, async () => ({
+        content: [{ type: 'text', text: JSON.stringify(await getReclaimableLicenseSummary()) }]
+    }));
+    server.registerTool('get_completed_decisions', {
+        title: 'Get Completed Decisions',
+        description: 'Returns an aggregate completed-decision summary for one application without raw decision records.',
+        inputSchema: {
+            appName: z.string().min(1).max(120)
+        }
+    }, async ({ appName }) => ({
+        content: [{ type: 'text', text: JSON.stringify(await getCompletedDecisionSummary(appName)) }]
+    }));
+    server.registerTool('get_reclaimable_license_details', {
+        title: 'Get Reclaimable License Details',
+        description: 'Returns reclaimable decision details for one application, including PC/device name and completion time. User identities and raw telemetry are excluded.',
+        inputSchema: {
+            appName: z.string().min(1).max(120)
+        }
+    }, async ({ appName }) => ({
+        content: [{ type: 'text', text: JSON.stringify(await getReclaimableLicenseDetails(appName)) }]
+    }));
     const client = new Client({
         name: 'accessguard-mastra-client',
         version: '1.0.0'
@@ -813,10 +847,332 @@ async function updateGitHubPrFromApproval(prOwner, prRepo, prNumberValue, decisi
     });
     return `GitHub PR #${pull_number} closed without merge.`;
 }
+function assistantAppName(record) {
+    return String(record.appName ?? record.app_name ?? record.name ?? record.application ?? '');
+}
+async function callAssistantToolViaMcp(name, argumentsValue) {
+    const allowedTools = new Set([
+        'find_license_availability',
+        'summarize_reclaimable_licenses',
+        'get_completed_decisions',
+        'get_reclaimable_license_details'
+    ]);
+    if (!allowedTools.has(name))
+        throw new Error(`Assistant requested unsupported MCP tool: ${name}`);
+    const client = await getLicenseMcpClient();
+    const result = await client.callTool({ name, arguments: argumentsValue });
+    const content = result.content;
+    const textContent = content.find((item) => item.type === 'text');
+    if (!textContent)
+        throw new Error(`MCP ${name} returned no text content.`);
+    return textContent.text;
+}
+function assistantDecisionText(record) {
+    return [record.status, record.decision, record.recommendation, record.result, record.reason]
+        .filter(Boolean)
+        .join(' ');
+}
+function isReclaimableDecision(record) {
+    return /reclaim|available|unused|inactive|underutilized|release/i.test(assistantDecisionText(record));
+}
+function assistantNumber(record, keys) {
+    const key = keys.find((candidate) => record[candidate] !== undefined);
+    return key ? Number(record[key] || 0) : 0;
+}
+function escapeMongoRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function assistantAppMatcher(appName) {
+    const normalized = appName.trim().replace(/\.exe$/i, '');
+    return new RegExp(`^${escapeMongoRegex(normalized)}(?:\\.exe)?$`, 'i');
+}
+async function withAssistantCollections(operation) {
+    const mongoClient = new MongoClient(process.env.MONGO_URI || 'mongodb://localhost:27017');
+    try {
+        await mongoClient.connect();
+        const database = mongoClient.db(process.env.MONGO_DATABASE || 'app-usage-monitoring');
+        return await operation(database.collection('onboarded_licenses'), database.collection('evaluation_decisions'));
+    }
+    finally {
+        await mongoClient.close();
+    }
+}
+async function getLicenseAvailabilityMetrics(appName) {
+    return withAssistantCollections(async (licenseCollection, decisionCollection) => {
+        const appMatcher = assistantAppMatcher(appName);
+        const appQuery = {
+            $or: [{ appName: appMatcher }, { app_name: appMatcher }, { name: appMatcher }, { application: appMatcher }]
+        };
+        const [licenses, decisions] = await Promise.all([
+            licenseCollection.find(appQuery).limit(100).toArray(),
+            decisionCollection.find(appQuery).sort({ completed_date: -1, completed_time: -1 }).limit(100).toArray()
+        ]);
+        const totalSeats = licenses.reduce((total, record) => total + assistantNumber(record, ['totalSeats', 'total_seats', 'seats', 'quantity']), 0);
+        const assignedSeats = licenses.reduce((total, record) => total + assistantNumber(record, ['assignedSeats', 'assigned_seats', 'usedSeats']), 0);
+        const explicitlyAvailable = licenses.reduce((total, record) => total + assistantNumber(record, ['availableSeats', 'available_seats']), 0);
+        const inventoryAvailable = explicitlyAvailable || Math.max(0, totalSeats - assignedSeats);
+        const reclaimableDecisions = decisions.filter(isReclaimableDecision).length;
+        return {
+            application: appName.trim(),
+            inventoryRecords: licenses.length,
+            completedDecisions: decisions.length,
+            totalSeats,
+            assignedSeats,
+            inventoryAvailable,
+            reclaimableDecisions,
+            potentiallyAvailable: Math.max(inventoryAvailable, reclaimableDecisions),
+            caveat: 'Potentially available seats require confirmation against the latest assignment state.'
+        };
+    });
+}
+async function getReclaimableLicenseSummary() {
+    return withAssistantCollections(async (_licenseCollection, decisionCollection) => {
+        const decisions = await decisionCollection.find({}).limit(500).toArray();
+        const reclaimable = decisions.filter(isReclaimableDecision);
+        const byApplication = reclaimable.reduce((counts, record) => {
+            const name = assistantAppName(record) || 'Unknown application';
+            counts[name] = (counts[name] || 0) + 1;
+            return counts;
+        }, {});
+        return {
+            completedDecisionsReviewed: decisions.length,
+            reclaimableDecisionCount: reclaimable.length,
+            byApplication: Object.fromEntries(Object.entries(byApplication).sort((first, second) => second[1] - first[1]).slice(0, 20))
+        };
+    });
+}
+async function getCompletedDecisionSummary(appName) {
+    return withAssistantCollections(async (_licenseCollection, decisionCollection) => {
+        const appMatcher = assistantAppMatcher(appName);
+        const decisions = await decisionCollection
+            .find({ $or: [{ appName: appMatcher }, { app_name: appMatcher }, { name: appMatcher }, { application: appMatcher }] })
+            .sort({ completed_date: -1, completed_time: -1 })
+            .limit(200)
+            .toArray();
+        const categories = decisions.reduce((counts, record) => {
+            const category = assistantDecisionText(record).trim() || 'Unspecified';
+            counts[category] = (counts[category] || 0) + 1;
+            return counts;
+        }, {});
+        return {
+            application: appName.trim(),
+            completedDecisionCount: decisions.length,
+            reclaimableDecisionCount: decisions.filter(isReclaimableDecision).length,
+            categories: Object.fromEntries(Object.entries(categories).slice(0, 20))
+        };
+    });
+}
+async function getReclaimableLicenseDetails(appName) {
+    return withAssistantCollections(async (_licenseCollection, decisionCollection) => {
+        const appMatcher = assistantAppMatcher(appName);
+        const decisions = await decisionCollection
+            .find({ $or: [{ appName: appMatcher }, { app_name: appMatcher }, { name: appMatcher }, { application: appMatcher }] })
+            .sort({ completed_date: -1, completed_time: -1 })
+            .limit(100)
+            .toArray();
+        const details = decisions.filter(isReclaimableDecision).slice(0, 50).map((record) => ({
+            application: assistantAppName(record) || appName.trim(),
+            pcName: String(record.pcName ?? record.pc_name ?? record.device_name ?? record.device_id ?? 'Not recorded'),
+            decision: assistantDecisionText(record) || 'Reclaimable',
+            completedDate: record.completed_date ?? null,
+            completedTime: record.completed_time ?? null,
+            timeZone: record.time_zone ?? null
+        }));
+        return {
+            application: appName.trim(),
+            reclaimableDecisionCount: details.length,
+            details,
+            excludedFields: ['user identity', 'raw telemetry']
+        };
+    });
+}
+async function buildFallbackAssistantAnswer(question) {
+    const mongoClient = new MongoClient(process.env.MONGO_URI || 'mongodb://localhost:27017');
+    try {
+        await mongoClient.connect();
+        const database = mongoClient.db(process.env.MONGO_DATABASE || 'app-usage-monitoring');
+        const [licenses, decisions] = await Promise.all([
+            database.collection('onboarded_licenses').find({}).limit(500).toArray(),
+            database
+                .collection('evaluation_decisions')
+                .find({})
+                .sort({ completed_date: -1, completed_time: -1 })
+                .limit(500)
+                .toArray()
+        ]);
+        const records = [...licenses, ...decisions];
+        const normalizedQuestion = question.toLowerCase();
+        const appNames = [...new Set(records.map(assistantAppName).filter(Boolean))].sort((first, second) => second.length - first.length);
+        const requestedApp = appNames.find((name) => normalizedQuestion.includes(name.toLowerCase()));
+        if (requestedApp) {
+            const matchesApp = (record) => assistantAppName(record).toLowerCase() === requestedApp.toLowerCase();
+            const appLicenses = licenses.filter(matchesApp);
+            const appDecisions = decisions.filter(matchesApp);
+            const reclaimable = appDecisions.filter(isReclaimableDecision);
+            const totalSeats = appLicenses.reduce((total, record) => total + assistantNumber(record, ['totalSeats', 'total_seats', 'seats', 'quantity']), 0);
+            const assignedSeats = appLicenses.reduce((total, record) => total + assistantNumber(record, ['assignedSeats', 'assigned_seats', 'usedSeats']), 0);
+            const explicitAvailable = appLicenses.reduce((total, record) => total + assistantNumber(record, ['availableSeats', 'available_seats']), 0);
+            const inventoryAvailable = explicitAvailable || Math.max(0, totalSeats - assignedSeats);
+            const availability = Math.max(inventoryAvailable, reclaimable.length);
+            if (/available|availability|free|open|request|access/.test(normalizedQuestion)) {
+                return {
+                    answer: availability > 0
+                        ? `Yes. I found ${availability} potentially available ${requestedApp} license${availability === 1 ? '' : 's'}. ${inventoryAvailable} are indicated by inventory capacity and ${reclaimable.length} by completed reclaim decisions. Confirm the latest assignment state before allocating a seat.`
+                        : `I could not confirm an available ${requestedApp} license. I found ${appLicenses.length} inventory record${appLicenses.length === 1 ? '' : 's'} and ${appDecisions.length} completed decision${appDecisions.length === 1 ? '' : 's'}, with no free capacity or reclaim recommendation recorded.`,
+                    recordsReviewed: records.length
+                };
+            }
+            return {
+                answer: `${requestedApp} has ${appLicenses.length} inventory record${appLicenses.length === 1 ? '' : 's'}, ${appDecisions.length} completed decision${appDecisions.length === 1 ? '' : 's'}, and ${reclaimable.length} potentially reclaimable license${reclaimable.length === 1 ? '' : 's'}.`,
+                recordsReviewed: records.length
+            };
+        }
+        const reclaimable = decisions.filter(isReclaimableDecision);
+        if (/reclaim|unused|inactive|underutilized/.test(normalizedQuestion)) {
+            const appCounts = reclaimable.reduce((counts, record) => {
+                const name = assistantAppName(record) || 'Unknown application';
+                counts[name] = (counts[name] || 0) + 1;
+                return counts;
+            }, {});
+            const leaders = Object.entries(appCounts)
+                .sort((first, second) => second[1] - first[1])
+                .slice(0, 5)
+                .map(([name, count]) => `${name} (${count})`)
+                .join(', ');
+            return {
+                answer: `There are ${reclaimable.length} completed decisions indicating reclaimable or underused licenses.${leaders ? ` The leading applications are ${leaders}.` : ''}`,
+                recordsReviewed: records.length
+            };
+        }
+        return {
+            answer: `I reviewed ${records.length} current MongoDB license and decision records. I can answer questions about availability, reclaimable licenses, inactive usage, and completed decisions. Try asking about a specific application such as Postman.`,
+            recordsReviewed: records.length
+        };
+    }
+    finally {
+        await mongoClient.close();
+    }
+}
+const assistantOpenAITools = [
+    {
+        type: 'function', name: 'find_license_availability',
+        description: 'Find aggregate license availability for one named application.',
+        parameters: { type: 'object', properties: { appName: { type: 'string' } }, required: ['appName'], additionalProperties: false },
+        strict: true
+    },
+    {
+        type: 'function', name: 'summarize_reclaimable_licenses',
+        description: 'Summarize reclaimable or underused license decisions across applications.',
+        parameters: { type: 'object', properties: {}, additionalProperties: false },
+        strict: true
+    },
+    {
+        type: 'function', name: 'get_completed_decisions',
+        description: 'Get aggregate completed decision metrics for one named application.',
+        parameters: { type: 'object', properties: { appName: { type: 'string' } }, required: ['appName'], additionalProperties: false },
+        strict: true
+    },
+    {
+        type: 'function', name: 'get_reclaimable_license_details',
+        description: 'Get reclaimable decision details for an application, including PC/device name and completion time.',
+        parameters: { type: 'object', properties: { appName: { type: 'string' } }, required: ['appName'], additionalProperties: false },
+        strict: true
+    }
+];
+function openAIText(payload) {
+    if (typeof payload.output_text === 'string')
+        return payload.output_text.trim();
+    return (payload.output || []).flatMap((item) => item.content || [])
+        .filter((content) => content.type === 'output_text' && typeof content.text === 'string')
+        .map((content) => content.text).join('\n').trim();
+}
+async function createOpenAIResponse(body) {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${requiredEnv('OPENAI_API_KEY')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    const payload = (await response.json().catch(() => ({})));
+    if (!response.ok)
+        throw new Error(payload.error?.message || `OpenAI returned status ${response.status}`);
+    return payload;
+}
+function countReviewedToolRecords(toolResult) {
+    try {
+        const value = JSON.parse(toolResult);
+        return Number(value.completedDecisionsReviewed || value.completedDecisionCount || value.reclaimableDecisionCount || 0) + Number(value.inventoryRecords || 0);
+    }
+    catch {
+        return 0;
+    }
+}
+async function answerAssistantQuestion(question, conversation) {
+    if (!process.env.OPENAI_API_KEY?.trim()) {
+        return { ...(await buildFallbackAssistantAnswer(question)), source: 'monitoring-agent-fallback' };
+    }
+    try {
+        const inputItems = conversation.length
+            ? conversation.map(({ role, content }) => ({ role, content }))
+            : [{ role: 'user', content: question }];
+        let response = await createOpenAIResponse({
+            model: process.env.OPENAI_MODEL || 'gpt-5-mini', store: false,
+            instructions: 'You are AgentOps AI, a read-only software-license assistant. Use a supplied tool for every factual license question. Tool outputs are authoritative aggregate metrics. Never invent facts or identifiers. Distinguish inventory capacity from potentially reclaimable seats. Never claim to modify a license. Keep answers concise.',
+            input: inputItems, tools: assistantOpenAITools, tool_choice: 'required'
+        });
+        let recordsReviewed = 0;
+        for (let round = 0; round < 3; round += 1) {
+            const calls = (response.output || []).filter((item) => item.type === 'function_call' && item.name && item.call_id);
+            if (calls.length === 0) {
+                const answer = openAIText(response);
+                if (!answer)
+                    throw new Error('OpenAI returned neither an answer nor a tool call');
+                return { answer, recordsReviewed, source: 'openai-mcp' };
+            }
+            const toolOutputs = [];
+            for (const call of calls) {
+                let argumentsValue = {};
+                try {
+                    argumentsValue = JSON.parse(call.arguments || '{}');
+                }
+                catch {
+                    throw new Error(`OpenAI supplied invalid arguments for ${call.name}`);
+                }
+                const output = await callAssistantToolViaMcp(call.name, argumentsValue);
+                recordsReviewed += countReviewedToolRecords(output);
+                toolOutputs.push({ type: 'function_call_output', call_id: call.call_id, output });
+            }
+            inputItems.push(...(response.output || []), ...toolOutputs);
+            response = await createOpenAIResponse({
+                model: process.env.OPENAI_MODEL || 'gpt-5-mini', store: false,
+                input: inputItems, tools: assistantOpenAITools, tool_choice: 'auto'
+            });
+        }
+        throw new Error('OpenAI exceeded the assistant tool-call limit');
+    }
+    catch (error) {
+        console.error('OpenAI MCP assistant failed; using local fallback:', getErrorMessage(error));
+        return { ...(await buildFallbackAssistantAnswer(question)), source: 'monitoring-agent-fallback' };
+    }
+}
 function startServer() {
     const app = express();
-    const port = Number(process.env.PORT ?? 3000);
+    const port = Number(process.env.PORT ?? 3002);
     const shouldUseExactPort = Boolean(process.env.PORT);
+    app.use((request, response, next) => {
+        const allowedOrigin = process.env.UI_ORIGIN || 'http://localhost:5173';
+        const origin = request.get('origin');
+        if (origin === allowedOrigin || origin === 'http://127.0.0.1:5173') {
+            response.setHeader('Access-Control-Allow-Origin', origin);
+            response.setHeader('Vary', 'Origin');
+        }
+        response.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Client-Id');
+        response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        if (request.method === 'OPTIONS') {
+            response.sendStatus(204);
+            return;
+        }
+        next();
+    });
     app.use(express.urlencoded({
         extended: false,
         verify: (request, _response, buffer) => {
@@ -894,6 +1250,38 @@ function startServer() {
         }
         catch (error) {
             console.error('❌ Slack endpoint runtime failure:', error);
+        }
+    });
+    app.post('/api/assistant/chat', async (request, response) => {
+        const messages = Array.isArray(request.body?.messages)
+            ? request.body.messages
+                .filter((message) => {
+                const item = message;
+                return (item.role === 'user' || item.role === 'assistant') &&
+                    typeof item.content === 'string' && item.content.trim();
+            })
+                .slice(-10)
+                .map((message) => ({
+                role: message.role,
+                content: message.content.trim().slice(0, 2000)
+            }))
+            : [];
+        const latestQuestion = [...messages]
+            .reverse()
+            .find((message) => message?.role === 'user' && typeof message?.content === 'string')
+            ?.content.trim()
+            .slice(0, 2000);
+        if (!latestQuestion) {
+            sendJson(response, 400, { error: 'A user message is required' });
+            return;
+        }
+        try {
+            const result = await answerAssistantQuestion(latestQuestion, messages);
+            sendJson(response, 200, result);
+        }
+        catch (error) {
+            console.error('Assistant request failed:', getErrorMessage(error));
+            sendJson(response, 500, { error: 'Unable to analyze license data right now' });
         }
     });
     const listen = (targetPort) => {
