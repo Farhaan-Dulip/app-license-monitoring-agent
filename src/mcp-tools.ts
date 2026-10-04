@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { RecordValue } from './types.js';
 
@@ -37,6 +38,13 @@ export const openAITools = [
 
 let mcpClientPromise: Promise<Client> | undefined;
 
+// Portal failures (network, auth, 5xx) mean the agent cannot answer from data;
+// they abort the request so the portal falls back to its database answer.
+// Model mistakes (bad arguments, unknown tools) are returned to the model instead.
+const PORTAL_UNAVAILABLE = 'PORTAL_UNAVAILABLE';
+
+export class ToolUnavailableError extends Error {}
+
 async function callPortalMcp(path: string, appName?: string): Promise<RecordValue> {
   const portalApiUrl = (process.env.PORTAL_API_URL || 'http://localhost:3000').replace(/\/$/, '');
   const serviceToken = process.env.MCP_SERVICE_TOKEN?.trim();
@@ -45,11 +53,20 @@ async function callPortalMcp(path: string, appName?: string): Promise<RecordValu
   if (appName) url.searchParams.set('appName', appName);
   const response = await fetch(url, {
     headers: { 'X-MCP-Service-Token': serviceToken },
-    signal: AbortSignal.timeout(15000)
+    signal: AbortSignal.timeout(Number(process.env.PORTAL_TOOL_TIMEOUT_MS) || 8000)
   });
   const payload = await response.json().catch(() => ({})) as RecordValue;
   if (!response.ok) throw new Error(String(payload.error || `Portal MCP endpoint returned ${response.status}.`));
   return payload;
+}
+
+async function portalTool(path: string, appName?: string): Promise<CallToolResult> {
+  try {
+    return { content: [{ type: 'text', text: JSON.stringify(await callPortalMcp(path, appName)) }] };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { content: [{ type: 'text', text: `${PORTAL_UNAVAILABLE}: ${message}` }], isError: true };
+  }
 }
 
 async function createMcpClient(): Promise<Client> {
@@ -57,22 +74,22 @@ async function createMcpClient(): Promise<Client> {
   server.registerTool(
     'find_license_availability',
     { description: 'Aggregate availability for one application.', inputSchema: { appName: z.string().min(1).max(120) } },
-    async ({ appName }) => ({ content: [{ type: 'text', text: JSON.stringify(await callPortalMcp('/api/mcp/license-availability', appName)) }] })
+    ({ appName }) => portalTool('/api/mcp/license-availability', appName)
   );
   server.registerTool(
     'summarize_reclaimable_licenses',
     { description: 'Reclaimable counts grouped by application.' },
-    async () => ({ content: [{ type: 'text', text: JSON.stringify(await callPortalMcp('/api/mcp/reclaimable-summary')) }] })
+    () => portalTool('/api/mcp/reclaimable-summary')
   );
   server.registerTool(
     'get_completed_decisions',
     { description: 'Aggregate completed decisions for one application.', inputSchema: { appName: z.string().min(1).max(120) } },
-    async ({ appName }) => ({ content: [{ type: 'text', text: JSON.stringify(await callPortalMcp('/api/mcp/decision-summary', appName)) }] })
+    ({ appName }) => portalTool('/api/mcp/decision-summary', appName)
   );
   server.registerTool(
     'get_reclaimable_license_details',
     { description: 'Reclaimable details including PC name.', inputSchema: { appName: z.string().min(1).max(120) } },
-    async ({ appName }) => ({ content: [{ type: 'text', text: JSON.stringify(await callPortalMcp('/api/mcp/reclaimable-details', appName)) }] })
+    ({ appName }) => portalTool('/api/mcp/reclaimable-details', appName)
   );
 
   const client = new Client({ name: 'license-monitoring-agent', version: '1.0.0' });
@@ -82,11 +99,17 @@ async function createMcpClient(): Promise<Client> {
   return client;
 }
 
+// Returns the tool output for the model. Unknown tools and invalid arguments are
+// reported back to the model as JSON errors; portal outages throw.
 export async function callMcpTool(name: string, args: RecordValue): Promise<string> {
-  if (!toolNames.has(name)) throw new Error(`Unsupported MCP tool: ${name}`);
+  if (!toolNames.has(name)) return JSON.stringify({ error: `Unknown tool: ${name}. Use only the listed tools.` });
   mcpClientPromise ??= createMcpClient();
   const result = await (await mcpClientPromise).callTool({ name, arguments: args });
   const text = (result.content as Array<{ type: string; text?: string }>).find((item) => item.type === 'text')?.text;
-  if (!text) throw new Error(`MCP tool ${name} returned no text.`);
+  if (result.isError) {
+    if (text?.startsWith(PORTAL_UNAVAILABLE)) throw new ToolUnavailableError(`MCP tool ${name} failed: ${text}`);
+    return JSON.stringify({ error: text || `Tool ${name} rejected the request.` });
+  }
+  if (!text) throw new ToolUnavailableError(`MCP tool ${name} returned no text.`);
   return text;
 }
