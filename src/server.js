@@ -34,13 +34,23 @@ function parseMessages(value) {
         .slice(-10)
         .map((item) => ({ role: item.role, content: item.content.trim().slice(0, 2000) }));
 }
+function parseContext(body) {
+    const requester = body?.requester;
+    const name = String(requester?.name || '').trim().slice(0, 200);
+    const email = String(requester?.email || '').trim().toLowerCase();
+    const clientId = String(body?.clientId || '').trim().slice(0, 200);
+    return {
+        ...(name && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? { requester: { name, email } } : {}),
+        ...(clientId ? { clientId } : {}),
+    };
+}
 // The browser never calls this service: only the portal does, over the private
 // network, with the shared service token.
 export function createApp() {
     const app = express();
     app.use(express.json({ limit: '64kb' }));
     app.get('/', (_request, response) => sendJson(response, 200, {
-        service: 'app-usage-monitor-agent', purpose: 'read-only license monitoring assistant',
+        service: 'app-usage-monitor-agent', purpose: 'license monitoring assistant; raises license requests for owner approval',
         status: 'ok', assistantEndpoint: 'POST /api/assistant/chat'
     }));
     app.get('/health', (_request, response) => sendJson(response, 200, { status: 'ok' }));
@@ -51,7 +61,7 @@ export function createApp() {
             return;
         }
         try {
-            sendJson(response, 200, await answerLicenseQuestion(messages));
+            sendJson(response, 200, await answerLicenseQuestion(messages, parseContext(request.body)));
         }
         catch (error) {
             console.error('License assistant request failed:', error instanceof Error ? error.message : String(error));

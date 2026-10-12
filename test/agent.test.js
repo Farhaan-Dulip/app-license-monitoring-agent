@@ -124,7 +124,7 @@ test('tool loop keeps instructions on every turn and returns the final answer', 
   assert.equal(result.recordsReviewed, 3);
   assert.equal(calls.openai.length, 2);
   calls.openai.forEach((body) => {
-    assert.match(body.instructions, /read-only/);
+    assert.match(body.instructions, /Never invent facts or claim to allocate/);
     assert.equal(body.store, false);
   });
   assert.equal(calls.openai[0].tool_choice, 'required');

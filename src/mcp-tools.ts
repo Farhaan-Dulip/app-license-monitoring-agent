@@ -3,7 +3,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import type { RecordValue } from './types.js';
+import type { ChatContext, RecordValue } from './types.js';
 
 const toolNames = new Set([
   'find_license_availability',
@@ -35,6 +35,76 @@ export const openAITools = [
   openAITool('get_completed_decisions', 'Get aggregate completed decisions for one application.', true),
   openAITool('get_reclaimable_license_details', 'Get reclaimable decision details including PC name and completion time.', true)
 ];
+
+export const raiseLicenseRequestTool: RecordValue = {
+  type: 'function',
+  name: 'raise_license_request',
+  description:
+    'Raise a license request for the person you are chatting with, sent to the app owner for approval. ' +
+    'Use only when they ask for a license, seat or access to an application for themselves.',
+  strict: true,
+  parameters: {
+    type: 'object',
+    properties: {
+      appName: { type: 'string', description: 'Application name, e.g. Postman' },
+      reason: { type: 'string', description: 'Why they need it, in their words; empty if not given' }
+    },
+    required: ['appName', 'reason'],
+    additionalProperties: false
+  }
+};
+
+export type RaisedRequest = {
+  id: string;
+  requestedApp: string;
+  approvingManagerName: string;
+  status: string;
+  duplicate: boolean;
+};
+
+// Creates the request on the portal for the context's requester. Validation
+// failures (unknown app, no owner) are returned for the model to explain.
+export async function raiseLicenseRequest(
+  args: RecordValue,
+  context: ChatContext
+): Promise<{ output: string; request?: RaisedRequest }> {
+  if (!context.requester) {
+    return { output: JSON.stringify({ error: 'The requester name and work email are not set in the chat panel.' }) };
+  }
+  const portalApiUrl = (process.env.PORTAL_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const serviceToken = process.env.MCP_SERVICE_TOKEN?.trim();
+  if (!serviceToken) throw new ToolUnavailableError('MCP_SERVICE_TOKEN is not configured.');
+  let response: Response;
+  try {
+    response = await fetch(`${portalApiUrl}/api/mcp/license-requests`, {
+      method: 'POST',
+      headers: { 'X-MCP-Service-Token': serviceToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestedApp: String(args.appName || '').slice(0, 120),
+        reason: String(args.reason || '').slice(0, 1000),
+        requesterName: context.requester.name,
+        requesterEmail: context.requester.email,
+        clientId: context.clientId || '',
+        source: 'chat'
+      }),
+      signal: AbortSignal.timeout(Number(process.env.PORTAL_TOOL_TIMEOUT_MS) || 8000)
+    });
+  } catch (error: unknown) {
+    throw new ToolUnavailableError(`raise_license_request failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const payload = (await response.json().catch(() => ({}))) as RecordValue;
+  if (response.status >= 500) throw new ToolUnavailableError(`raise_license_request failed: portal returned ${response.status}.`);
+  if (!response.ok) return { output: JSON.stringify({ error: String(payload.error || 'The portal rejected the request.') }) };
+  const raised = (payload.request || {}) as RecordValue;
+  const request: RaisedRequest = {
+    id: String(raised.id || ''),
+    requestedApp: String(raised.requestedApp || ''),
+    approvingManagerName: String(raised.approvingManagerName || ''),
+    status: String(raised.status || ''),
+    duplicate: Boolean(payload.duplicate)
+  };
+  return { output: JSON.stringify({ ...request, licenseAssigned: false }), request };
+}
 
 let mcpClientPromise: Promise<Client> | undefined;
 

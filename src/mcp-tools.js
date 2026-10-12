@@ -30,6 +30,66 @@ export const openAITools = [
     openAITool('get_completed_decisions', 'Get aggregate completed decisions for one application.', true),
     openAITool('get_reclaimable_license_details', 'Get reclaimable decision details including PC name and completion time.', true)
 ];
+export const raiseLicenseRequestTool = {
+    type: 'function',
+    name: 'raise_license_request',
+    description: 'Raise a license request for the person you are chatting with, sent to the app owner for approval. ' +
+        'Use only when they ask for a license, seat or access to an application for themselves.',
+    strict: true,
+    parameters: {
+        type: 'object',
+        properties: {
+            appName: { type: 'string', description: 'Application name, e.g. Postman' },
+            reason: { type: 'string', description: 'Why they need it, in their words; empty if not given' }
+        },
+        required: ['appName', 'reason'],
+        additionalProperties: false
+    }
+};
+// Creates the request on the portal for the context's requester. Validation
+// failures (unknown app, no owner) are returned for the model to explain.
+export async function raiseLicenseRequest(args, context) {
+    if (!context.requester) {
+        return { output: JSON.stringify({ error: 'The requester name and work email are not set in the chat panel.' }) };
+    }
+    const portalApiUrl = (process.env.PORTAL_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const serviceToken = process.env.MCP_SERVICE_TOKEN?.trim();
+    if (!serviceToken)
+        throw new ToolUnavailableError('MCP_SERVICE_TOKEN is not configured.');
+    let response;
+    try {
+        response = await fetch(`${portalApiUrl}/api/mcp/license-requests`, {
+            method: 'POST',
+            headers: { 'X-MCP-Service-Token': serviceToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requestedApp: String(args.appName || '').slice(0, 120),
+                reason: String(args.reason || '').slice(0, 1000),
+                requesterName: context.requester.name,
+                requesterEmail: context.requester.email,
+                clientId: context.clientId || '',
+                source: 'chat'
+            }),
+            signal: AbortSignal.timeout(Number(process.env.PORTAL_TOOL_TIMEOUT_MS) || 8000)
+        });
+    }
+    catch (error) {
+        throw new ToolUnavailableError(`raise_license_request failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const payload = (await response.json().catch(() => ({})));
+    if (response.status >= 500)
+        throw new ToolUnavailableError(`raise_license_request failed: portal returned ${response.status}.`);
+    if (!response.ok)
+        return { output: JSON.stringify({ error: String(payload.error || 'The portal rejected the request.') }) };
+    const raised = (payload.request || {});
+    const request = {
+        id: String(raised.id || ''),
+        requestedApp: String(raised.requestedApp || ''),
+        approvingManagerName: String(raised.approvingManagerName || ''),
+        status: String(raised.status || ''),
+        duplicate: Boolean(payload.duplicate)
+    };
+    return { output: JSON.stringify({ ...request, licenseAssigned: false }), request };
+}
 let mcpClientPromise;
 // Portal failures (network, auth, 5xx) mean the agent cannot answer from data;
 // they abort the request so the portal falls back to its database answer.

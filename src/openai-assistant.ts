@@ -1,14 +1,18 @@
-import { callMcpTool, openAITools } from './mcp-tools.js';
-import type { ChatMessage, OpenAIResponse, RecordValue } from './types.js';
+import { callMcpTool, openAITools, raiseLicenseRequest, raiseLicenseRequestTool, type RaisedRequest } from './mcp-tools.js';
+import type { ChatContext, ChatMessage, OpenAIResponse, RecordValue } from './types.js';
 
-const INSTRUCTIONS = 'You are AgentOps AI, a read-only license monitoring assistant. Use a tool for factual questions. Tool results are authoritative. If a tool returns an error, say the data was unavailable rather than guessing. Never invent facts or claim to allocate, reclaim, approve, or modify licenses.';
+const INSTRUCTIONS = 'You are AgentOps AI, a license monitoring assistant. Use a tool for factual questions. Tool results are authoritative. If a tool returns an error, say the data was unavailable rather than guessing. Never invent facts or claim to allocate, reclaim, approve, or modify licenses. Do not offer actions you have no tool for, such as notifying people or assigning licenses.';
+
+const REQUEST_INSTRUCTIONS = ' When the person asks for a license, seat or access to an application for themselves, call raise_license_request once. Afterwards tell them who approves it (the app owner from the tool result) and that no license is assigned until it is approved. If the tool reports a pending duplicate, say a request is already waiting. Do not raise requests for questions about licenses or for other people.';
+
+const NO_REQUESTER_INSTRUCTIONS = ' You cannot raise license requests in this conversation: if the person asks for a license or access, tell them to enter their name and work email in the chat panel and ask again.';
 
 // Whole-request budget; kept below the portal's ASSISTANT_AGENT_TIMEOUT_MS (25 s).
 function deadlineMs(): number {
   return Number(process.env.AGENT_DEADLINE_MS) || 20000;
 }
 
-async function createResponse(body: RecordValue, signal: AbortSignal): Promise<OpenAIResponse> {
+async function createResponse(body: RecordValue, signal: AbortSignal, context: ChatContext): Promise<OpenAIResponse> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) throw new Error('OPENAI_API_KEY is not configured.');
   const response = await fetch('https://api.openai.com/v1/responses', {
@@ -20,8 +24,8 @@ async function createResponse(body: RecordValue, signal: AbortSignal): Promise<O
       // With store=false, reasoning items can only be replayed in later turns
       // when their encrypted content is returned with them.
       include: ['reasoning.encrypted_content'],
-      instructions: INSTRUCTIONS,
-      tools: openAITools,
+      instructions: INSTRUCTIONS + (context.requester ? REQUEST_INSTRUCTIONS : NO_REQUESTER_INSTRUCTIONS),
+      tools: context.requester ? [...openAITools, raiseLicenseRequestTool] : openAITools,
       ...body
     }),
     signal
@@ -61,11 +65,13 @@ function parseArguments(raw: string | undefined): RecordValue | null {
   }
 }
 
-export async function answerLicenseQuestion(messages: ChatMessage[]): Promise<RecordValue> {
+export async function answerLicenseQuestion(messages: ChatMessage[], context: ChatContext = {}): Promise<RecordValue> {
   const signal = AbortSignal.timeout(deadlineMs());
   const input: RecordValue[] = messages.map(({ role, content }) => ({ role, content }));
-  let response = await createResponse({ input, tool_choice: 'required' }, signal);
+  let response = await createResponse({ input, tool_choice: 'required' }, signal, context);
   let recordsReviewed = 0;
+  // At most one request per turn, however often the model calls the tool.
+  let raised: { output: string; request?: RaisedRequest } | undefined;
 
   for (let round = 0; round < 3; round += 1) {
     const calls = (response.output || []).filter(
@@ -74,21 +80,27 @@ export async function answerLicenseQuestion(messages: ChatMessage[]): Promise<Re
     if (!calls.length) {
       const answer = responseText(response);
       if (!answer) throw new Error('OpenAI returned no answer.');
-      return { answer, recordsReviewed, source: 'openai-mcp' };
+      return { answer, recordsReviewed, source: 'openai-mcp', ...(raised?.request ? { workflow: raised.request } : {}) };
     }
 
     const outputs: RecordValue[] = [];
     for (const call of calls) {
       signal.throwIfAborted();
       const args = parseArguments(call.arguments);
-      const output = args
-        ? await callMcpTool(call.name!, args)
-        : JSON.stringify({ error: 'Tool arguments were not valid JSON.' });
+      let output: string;
+      if (!args) {
+        output = JSON.stringify({ error: 'Tool arguments were not valid JSON.' });
+      } else if (call.name === raiseLicenseRequestTool.name && context.requester) {
+        raised ??= await raiseLicenseRequest(args, context);
+        output = raised.output;
+      } else {
+        output = await callMcpTool(call.name!, args);
+      }
       recordsReviewed += reviewedCount(output);
       outputs.push({ type: 'function_call_output', call_id: call.call_id, output });
     }
     input.push(...((response.output || []) as RecordValue[]), ...outputs);
-    response = await createResponse({ input, tool_choice: 'auto' }, signal);
+    response = await createResponse({ input, tool_choice: 'auto' }, signal, context);
   }
   throw new Error('OpenAI exceeded the tool-call limit.');
 }

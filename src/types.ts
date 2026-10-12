@@ -1,5 +1,11 @@
 export type RecordValue = Record<string, unknown>;
 
+/** Who the conversation is for, supplied by the portal (never by the model). */
+export type ChatContext = {
+  requester?: { name: string; email: string };
+  clientId?: string;
+};
+
 export type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
